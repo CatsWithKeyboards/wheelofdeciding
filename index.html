@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wheel of Deciding – Random Decision Spinner</title>
+  <meta name="description" content="Create a custom random wheel, add your own choices, and let the Wheel of Deciding pick for you." />
+  <meta name="theme-color" content="#020617" />
+
+  <meta property="og:title" content="Wheel of Deciding" />
+  <meta property="og:description" content="Can't decide? Put it on the wheel and spin." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://wheelofdeciding.com/" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="site-header">
+      <div class="site-header-inner">
+        <div class="logo">
+          <span class="logo-mark" aria-hidden="true">🎡</span>
+          <span class="logo-text">Wheel of Deciding</span>
+        </div>
+        <p class="tagline">Put your options on the wheel and let chance decide.</p>
+      </div>
+    </header>
+
+    <main class="layout" aria-label="Wheel of Deciding app">
+      <section class="wheel-panel" aria-labelledby="wheel-heading">
+        <h1 id="wheel-heading" class="visually-hidden">Wheel of Deciding</h1>
+
+        <div class="wheel-wrapper" aria-hidden="true">
+          <div class="wheel-shadow">
+            <canvas id="wheelCanvas" width="500" height="500"></canvas>
+            <div class="wheel-pointer"></div>
+          </div>
+        </div>
+
+        <div class="wheel-controls">
+          <button type="button" id="spinButton" class="primary-button spin-button">
+            Spin the wheel
+          </button>
+          <button type="button" id="resetButton" class="secondary-button">
+            Reset wheel
+          </button>
+        </div>
+
+        <div id="resultDisplay" class="result-display" role="status" aria-live="polite">
+          Add some options and spin the wheel.
+        </div>
+
+        <section class="history-section" aria-label="Spin history">
+          <div class="section-header">
+            <h2>Spin history</h2>
+            <span class="section-subtitle">Most recent at the top</span>
+          </div>
+          <ul id="historyList" class="history-list"></ul>
+        </section>
+      </section>
+
+      <aside class="options-panel" aria-label="Wheel options">
+        <div class="options-panel-inner">
+          <h2 class="options-heading">Customize your wheel</h2>
+          <p class="options-intro">
+            Name your wheel, add choices, and spin. Your data is stored only in your browser.
+          </p>
+
+          <form id="optionForm" class="option-form" autocomplete="off">
+            <label class="field-label" for="wheelName">Wheel name</label>
+            <input
+              id="wheelName"
+              name="wheelName"
+              class="text-input"
+              type="text"
+              maxlength="60"
+              placeholder="e.g. Friday night plans"
+            />
+
+            <label class="field-label" for="newOptionInput">Add a choice</label>
+            <div class="option-input-row">
+              <input
+                id="newOptionInput"
+                name="newOption"
+                class="text-input"
+                type="text"
+                maxlength="80"
+                placeholder="Type an option and press Enter"
+              />
+              <button type="submit" class="primary-button add-button">
+                Add
+              </button>
+            </div>
+            <p class="field-help">
+              Tip: Add at least two options for a more exciting spin. You can save up to 64 options.
+            </p>
+          </form>
+
+          <section aria-label="Current options">
+            <div class="section-header section-header-tight">
+              <h3>Your choices</h3>
+              <span class="section-subtitle"><span id="optionCount">0</span> total</span>
+            </div>
+
+            <ul id="optionsList" class="options-list"></ul>
+          </section>
+
+          <section class="share-section" aria-label="Share wheel link">
+            <div class="section-header section-header-tight">
+              <h3>Share this wheel</h3>
+            </div>
+            <p class="field-help">
+              Copy this link to share your current wheel configuration. Anyone opening it will see these options.
+            </p>
+            <div class="share-row">
+              <input
+                id="shareLink"
+                class="text-input share-input"
+                type="text"
+                readonly
+                aria-label="Shareable link for this wheel"
+              />
+              <button type="button" id="copyShareLinkButton" class="secondary-button share-button">
+                Copy
+              </button>
+            </div>
+            <div id="shareCopyToast" class="toast" role="status" aria-live="polite"></div>
+          </section>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        Wheel of Deciding keeps everything in your browser. Refresh-safe, privacy-friendly, and always ready to spin.
+      </p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
