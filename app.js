@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", function () {
   
   const STORAGE_KEY = "wheelOfDeciding.v1";
   const SOUND_KEY = "wheelOfDeciding.sound";
+  const VOLUME_KEY = "wheelOfDeciding.volume";
   const MAX_OPTIONS = 64;
 
   const COLORS = [
@@ -50,83 +51,200 @@ document.addEventListener("DOMContentLoaded", function () {
   const copyShareLinkButton = $("#copyShareLinkButton");
   const shareToast = $("#shareCopyToast");
   const soundToggle = $("#soundToggle");
+  const volumeSlider = $("#volumeSlider");
+  const volumeValue = $("#volumeValue");
+  const volumeControl = $(".volume-control");
   const wheelFrame = $(".wheel-frame");
   const wheelSparkles = $("#wheelSparkles");
 
   // ==================== STATE ====================
-  
+
   const state = {
     wheelName: "What should we do?",
     options: [],
     history: [],
     isSpinning: false,
     rotation: 0,
-    soundEnabled: true
+    soundEnabled: true,
+    volume: 0.7
   };
 
   // ==================== AUDIO ENGINE ====================
   
   let audioCtx = null;
+  let masterGain = null;
   
   function getAudioContext() {
     if (!audioCtx) {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = audioCtx.createGain();
+      masterGain.connect(audioCtx.destination);
+      masterGain.gain.value = state.volume;
     }
     if (audioCtx.state === "suspended") {
       audioCtx.resume();
     }
     return audioCtx;
   }
+  
+  function setVolume(vol) {
+    state.volume = vol;
+    if (masterGain) {
+      masterGain.gain.value = vol;
+    }
+  }
 
-  // Synthesized tick sound - mechanical click
-  function playTick() {
+  // Premium tick sound - casino-style clicker
+  function playTick(speed = 1) {
     if (!state.soundEnabled) return;
     try {
       const ctx = getAudioContext();
       const now = ctx.currentTime;
       
-      // Click oscillator
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      const filter = ctx.createBiquadFilter();
+      // Layer 1: Sharp attack click
+      const click = ctx.createOscillator();
+      const clickGain = ctx.createGain();
+      const clickFilter = ctx.createBiquadFilter();
       
-      osc.type = "square";
-      osc.frequency.setValueAtTime(1800 + Math.random() * 400, now);
-      osc.frequency.exponentialRampToValueAtTime(600, now + 0.03);
+      click.type = "square";
+      click.frequency.setValueAtTime(2500, now);
+      click.frequency.exponentialRampToValueAtTime(800, now + 0.015);
       
-      filter.type = "bandpass";
-      filter.frequency.value = 2000;
-      filter.Q.value = 2;
+      clickFilter.type = "highpass";
+      clickFilter.frequency.value = 800;
+      clickFilter.Q.value = 1;
       
-      gain.gain.setValueAtTime(0.15, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+      clickGain.gain.setValueAtTime(0.25 * Math.min(speed, 1.5), now);
+      clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
       
-      osc.connect(filter);
-      filter.connect(gain);
-      gain.connect(ctx.destination);
+      click.connect(clickFilter);
+      clickFilter.connect(clickGain);
+      clickGain.connect(masterGain);
       
-      osc.start(now);
-      osc.stop(now + 0.05);
+      click.start(now);
+      click.stop(now + 0.03);
+      
+      // Layer 2: Body thump
+      const thump = ctx.createOscillator();
+      const thumpGain = ctx.createGain();
+      
+      thump.type = "sine";
+      thump.frequency.setValueAtTime(150 + Math.random() * 50, now);
+      thump.frequency.exponentialRampToValueAtTime(80, now + 0.05);
+      
+      thumpGain.gain.setValueAtTime(0.15, now);
+      thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+      
+      thump.connect(thumpGain);
+      thumpGain.connect(masterGain);
+      
+      thump.start(now);
+      thump.stop(now + 0.06);
+      
+      // Layer 3: High resonance ping
+      const ping = ctx.createOscillator();
+      const pingGain = ctx.createGain();
+      
+      ping.type = "sine";
+      ping.frequency.value = 3000 + Math.random() * 500;
+      
+      pingGain.gain.setValueAtTime(0.08, now);
+      pingGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+      
+      ping.connect(pingGain);
+      pingGain.connect(masterGain);
+      
+      ping.start(now);
+      ping.stop(now + 0.02);
     } catch (e) {}
   }
 
-  // Synthesized whoosh/spin start sound
+  // Whoosh/spin start - more dramatic
   function playSpinStart() {
     if (!state.soundEnabled) return;
     try {
       const ctx = getAudioContext();
       const now = ctx.currentTime;
-      const duration = 0.6;
       
-      // Noise-based whoosh
+      // Ascending whoosh with noise
+      const duration = 0.8;
       const bufferSize = ctx.sampleRate * duration;
       const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
       const data = buffer.getChannelData(0);
       
       for (let i = 0; i < bufferSize; i++) {
         const t = i / bufferSize;
-        const env = Math.sin(t * Math.PI) * Math.pow(1 - t, 0.5);
-        data[i] = (Math.random() * 2 - 1) * env;
+        const env = Math.sin(t * Math.PI * 0.5) * (1 - t * 0.3);
+        data[i] = (Math.random() * 2 - 1) * env * 0.5;
+      }
+      
+      const noise = ctx.createBufferSource();
+      const noiseFilter = ctx.createBiquadFilter();
+      const noiseGain = ctx.createGain();
+      
+      noise.buffer = buffer;
+      noiseFilter.type = "bandpass";
+      noiseFilter.frequency.setValueAtTime(400, now);
+      noiseFilter.frequency.exponentialRampToValueAtTime(3000, now + 0.3);
+      noiseFilter.frequency.exponentialRampToValueAtTime(1500, now + duration);
+      noiseFilter.Q.value = 0.7;
+      
+      noiseGain.gain.setValueAtTime(0.4, now);
+      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(masterGain);
+      noise.start(now);
+      
+      // Rising tone sweep
+      const sweep = ctx.createOscillator();
+      const sweepGain = ctx.createGain();
+      
+      sweep.type = "sawtooth";
+      sweep.frequency.setValueAtTime(100, now);
+      sweep.frequency.exponentialRampToValueAtTime(600, now + 0.5);
+      
+      sweepGain.gain.setValueAtTime(0.12, now);
+      sweepGain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      
+      sweep.connect(sweepGain);
+      sweepGain.connect(masterGain);
+      sweep.start(now);
+      sweep.stop(now + 0.6);
+      
+      // Power-up chord
+      [130.81, 164.81, 196].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.08, now + i * 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4 + i * 0.05);
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start(now + i * 0.05);
+        osc.stop(now + 0.5);
+      });
+    } catch (e) {}
+  }
+
+  // Continuous spinning ambience
+  let spinAmbience = null;
+  
+  function startSpinAmbience() {
+    if (!state.soundEnabled || spinAmbience) return;
+    try {
+      const ctx = getAudioContext();
+      
+      // Create looping whoosh
+      const bufferSize = ctx.sampleRate * 2;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      
+      for (let i = 0; i < bufferSize; i++) {
+        const t = i / bufferSize;
+        data[i] = (Math.random() * 2 - 1) * 0.3 * (0.5 + 0.5 * Math.sin(t * Math.PI * 4));
       }
       
       const source = ctx.createBufferSource();
@@ -134,51 +252,67 @@ document.addEventListener("DOMContentLoaded", function () {
       const gain = ctx.createGain();
       
       source.buffer = buffer;
+      source.loop = true;
       
       filter.type = "bandpass";
-      filter.frequency.setValueAtTime(500, now);
-      filter.frequency.exponentialRampToValueAtTime(4000, now + duration * 0.3);
-      filter.frequency.exponentialRampToValueAtTime(1000, now + duration);
-      filter.Q.value = 1;
+      filter.frequency.value = 800;
+      filter.Q.value = 0.5;
       
-      gain.gain.setValueAtTime(0.3, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      gain.gain.value = 0.15;
       
       source.connect(filter);
       filter.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(masterGain);
+      source.start();
       
-      source.start(now);
-      
-      // Rising tone
-      const osc = ctx.createOscillator();
-      const oscGain = ctx.createGain();
-      
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(200, now);
-      osc.frequency.exponentialRampToValueAtTime(800, now + 0.4);
-      
-      oscGain.gain.setValueAtTime(0.1, now);
-      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-      
-      osc.connect(oscGain);
-      oscGain.connect(ctx.destination);
-      
-      osc.start(now);
-      osc.stop(now + 0.5);
+      spinAmbience = { source, gain, filter };
     } catch (e) {}
   }
+  
+  function stopSpinAmbience() {
+    if (spinAmbience) {
+      try {
+        spinAmbience.gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+        setTimeout(() => {
+          spinAmbience.source.stop();
+          spinAmbience = null;
+        }, 600);
+      } catch (e) {
+        spinAmbience = null;
+      }
+    }
+  }
+  
+  function updateSpinAmbience(speed) {
+    if (spinAmbience && spinAmbience.filter) {
+      const freq = 400 + speed * 1200;
+      spinAmbience.filter.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
+      spinAmbience.gain.gain.setTargetAtTime(0.1 + speed * 0.15, audioCtx.currentTime, 0.1);
+    }
+  }
 
-  // Synthesized victory fanfare
+  // Victory fanfare - more epic
   function playWinSound() {
     if (!state.soundEnabled) return;
     try {
       const ctx = getAudioContext();
       const now = ctx.currentTime;
       
-      // Victory chord progression: C major arpeggio up
-      const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-      const delays = [0, 0.08, 0.16, 0.24];
+      // Big impact hit
+      const impact = ctx.createOscillator();
+      const impactGain = ctx.createGain();
+      impact.type = "sine";
+      impact.frequency.setValueAtTime(80, now);
+      impact.frequency.exponentialRampToValueAtTime(40, now + 0.3);
+      impactGain.gain.setValueAtTime(0.5, now);
+      impactGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      impact.connect(impactGain);
+      impactGain.connect(masterGain);
+      impact.start(now);
+      impact.stop(now + 0.4);
+      
+      // Victory fanfare notes (C major 7th arpeggio)
+      const notes = [523.25, 659.25, 783.99, 987.77, 1046.50];
       
       notes.forEach((freq, i) => {
         const osc = ctx.createOscillator();
@@ -188,68 +322,62 @@ document.addEventListener("DOMContentLoaded", function () {
         
         osc.type = "sine";
         osc.frequency.value = freq;
-        
         osc2.type = "triangle";
-        osc2.frequency.value = freq;
+        osc2.frequency.value = freq * 1.002; // Slight detune for richness
         
         filter.type = "lowpass";
-        filter.frequency.value = 3000;
+        filter.frequency.value = 4000;
         
-        const startTime = now + delays[i];
-        
-        gain.gain.setValueAtTime(0, startTime);
-        gain.gain.linearRampToValueAtTime(0.2, startTime + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.8);
+        const start = now + 0.05 + i * 0.07;
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.2, start + 0.02);
+        gain.gain.setValueAtTime(0.2, start + 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.8);
         
         osc.connect(filter);
         osc2.connect(filter);
         filter.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(masterGain);
         
-        osc.start(startTime);
-        osc.stop(startTime + 0.8);
-        osc2.start(startTime);
-        osc2.stop(startTime + 0.8);
+        osc.start(start);
+        osc.stop(start + 0.8);
+        osc2.start(start);
+        osc2.stop(start + 0.8);
       });
       
-      // Shimmer effect
+      // Sparkle/shimmer overlay
       setTimeout(() => {
-        for (let i = 0; i < 12; i++) {
+        for (let i = 0; i < 15; i++) {
           setTimeout(() => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            
-            osc.type = "sine";
-            osc.frequency.value = 1500 + Math.random() * 2500;
-            
-            gain.gain.setValueAtTime(0.06, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-            
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            
-            osc.start();
-            osc.stop(ctx.currentTime + 0.15);
-          }, i * 40);
+            const sparkle = ctx.createOscillator();
+            const sparkleGain = ctx.createGain();
+            sparkle.type = "sine";
+            sparkle.frequency.value = 2000 + Math.random() * 3000;
+            sparkleGain.gain.setValueAtTime(0.06, ctx.currentTime);
+            sparkleGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+            sparkle.connect(sparkleGain);
+            sparkleGain.connect(masterGain);
+            sparkle.start();
+            sparkle.stop(ctx.currentTime + 0.12);
+          }, i * 35);
         }
-      }, 300);
+      }, 250);
       
-      // Bass thump
-      const bass = ctx.createOscillator();
-      const bassGain = ctx.createGain();
-      
-      bass.type = "sine";
-      bass.frequency.setValueAtTime(150, now + 0.24);
-      bass.frequency.exponentialRampToValueAtTime(50, now + 0.5);
-      
-      bassGain.gain.setValueAtTime(0.3, now + 0.24);
-      bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-      
-      bass.connect(bassGain);
-      bassGain.connect(ctx.destination);
-      
-      bass.start(now + 0.24);
-      bass.stop(now + 0.6);
+      // Final chord
+      setTimeout(() => {
+        [261.63, 329.63, 392, 523.25].forEach(freq => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.12, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+          osc.connect(gain);
+          gain.connect(masterGain);
+          osc.start();
+          osc.stop(ctx.currentTime + 1.2);
+        });
+      }, 450);
     } catch (e) {}
   }
 
@@ -264,17 +392,17 @@ document.addEventListener("DOMContentLoaded", function () {
       const gain = ctx.createGain();
       
       osc.type = "sine";
-      osc.frequency.setValueAtTime(800, now);
-      osc.frequency.exponentialRampToValueAtTime(500, now + 0.1);
+      osc.frequency.setValueAtTime(1200, now);
+      osc.frequency.exponentialRampToValueAtTime(600, now + 0.08);
       
-      gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
       
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(masterGain);
       
       osc.start(now);
-      osc.stop(now + 0.1);
+      osc.stop(now + 0.08);
     } catch (e) {}
   }
 
@@ -583,7 +711,7 @@ document.addEventListener("DOMContentLoaded", function () {
       Object.assign(state, shared, { history: [], rotation: 0 });
       return;
     }
-    
+
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) {
@@ -611,7 +739,7 @@ document.addEventListener("DOMContentLoaded", function () {
       if (!state.options.length) seedDefaults();
       
       state.history = (data.history || [])
-        .slice(0, 30)
+          .slice(0, 30)
         .filter(e => e?.result?.trim())
         .map(e => ({ ts: e.ts || Date.now(), result: e.result }));
     } catch (e) {
@@ -621,9 +749,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function loadSoundPref() {
     try {
-      const saved = localStorage.getItem(SOUND_KEY);
-      state.soundEnabled = saved !== "false";
+      const savedSound = localStorage.getItem(SOUND_KEY);
+      state.soundEnabled = savedSound !== "false";
+      
+      const savedVolume = localStorage.getItem(VOLUME_KEY);
+      if (savedVolume !== null) {
+        state.volume = parseFloat(savedVolume) || 0.7;
+      }
+      
       updateSoundUI();
+      updateVolumeUI();
     } catch (e) {}
   }
 
@@ -640,6 +775,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function saveSoundPref() {
     try {
       localStorage.setItem(SOUND_KEY, state.soundEnabled);
+      localStorage.setItem(VOLUME_KEY, state.volume);
     } catch (e) {}
   }
 
@@ -660,15 +796,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function renderOptions() {
     if (!optionsList) return;
-    
+
     optionsList.innerHTML = "";
-    
+
     if (!state.options.length) {
       optionsList.innerHTML = `<li class="options-list-empty">No options yet. Add your first choice above!</li>`;
       if (optionCountEl) optionCountEl.textContent = "0";
       return;
     }
-    
+
     state.options.forEach((opt, i) => {
       const li = document.createElement("li");
       li.className = "options-list-item";
@@ -680,7 +816,7 @@ document.addEventListener("DOMContentLoaded", function () {
       `;
       optionsList.appendChild(li);
     });
-    
+
     if (optionCountEl) optionCountEl.textContent = state.options.length;
   }
 
@@ -688,20 +824,20 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!historyList) return;
     
     historyList.innerHTML = "";
-    
+
     if (!state.history.length) {
       historyList.innerHTML = `<li class="history-empty">No spins yet. Give the wheel a spin!</li>`;
       return;
     }
-    
+
     state.history.forEach(entry => {
       const li = document.createElement("li");
       li.className = "history-item";
-      
+
       const time = new Date(entry.ts).toLocaleTimeString([], { 
-        hour: "2-digit", 
-        minute: "2-digit" 
-      });
+          hour: "2-digit",
+          minute: "2-digit"
+        });
       
       li.innerHTML = `
         <span class="history-result">${escapeHtml(entry.result)}</span>
@@ -713,7 +849,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function renderResult(message, isWin = false) {
     if (!resultDisplay) return;
-    
+
     resultDisplay.classList.toggle("has-result", isWin || !!message);
     
     if (message) {
@@ -731,7 +867,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function updateShareLink() {
     if (!shareLinkInput) return;
-    
+
     try {
       const data = {
         name: state.wheelName,
@@ -748,6 +884,19 @@ document.addEventListener("DOMContentLoaded", function () {
     if (soundToggle) {
       soundToggle.classList.toggle("is-muted", !state.soundEnabled);
     }
+    if (volumeControl) {
+      volumeControl.classList.toggle("is-muted", !state.soundEnabled);
+    }
+  }
+  
+  function updateVolumeUI() {
+    if (volumeSlider) {
+      volumeSlider.value = Math.round(state.volume * 100);
+      volumeSlider.style.setProperty('--volume-percent', `${state.volume * 100}%`);
+    }
+    if (volumeValue) {
+      volumeValue.textContent = `${Math.round(state.volume * 100)}%`;
+    }
   }
 
   function escapeHtml(str) {
@@ -757,10 +906,10 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // ==================== WHEEL RENDERING ====================
-  
+
   function renderWheel() {
     if (!canvas || !ctx) return;
-    
+
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
     const w = rect.width;
@@ -770,112 +919,205 @@ document.addEventListener("DOMContentLoaded", function () {
       canvas.width = w * dpr;
       canvas.height = h * dpr;
     }
-    
+
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
     
     const cx = w / 2;
     const cy = h / 2;
-    const radius = Math.min(w, h) / 2 - 2;
+    const radius = Math.min(w, h) / 2 - 4;
     
-    // Background
+    // === OUTER METALLIC RIM ===
     ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-    bgGrad.addColorStop(0, "#1e293b");
-    bgGrad.addColorStop(0.5, "#0f172a");
-    bgGrad.addColorStop(1, "#030712");
-    ctx.fillStyle = bgGrad;
+    const rimGrad = ctx.createLinearGradient(cx, cy - radius, cx, cy + radius);
+    rimGrad.addColorStop(0, "#64748b");
+    rimGrad.addColorStop(0.3, "#94a3b8");
+    rimGrad.addColorStop(0.5, "#cbd5e1");
+    rimGrad.addColorStop(0.7, "#94a3b8");
+    rimGrad.addColorStop(1, "#475569");
+    ctx.fillStyle = rimGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // === INNER SHADOW ON RIM ===
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius - 6, 0, Math.PI * 2);
+    ctx.fillStyle = "#1e293b";
     ctx.fill();
     ctx.restore();
     
+    const innerRadius = radius - 10;
+    
+    // === EMPTY STATE ===
     if (!state.options.length) {
       ctx.save();
       ctx.beginPath();
-      ctx.arc(cx, cy, radius * 0.94, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(30, 64, 175, 0.15)";
+      ctx.arc(cx, cy, innerRadius, 0, Math.PI * 2);
+      const emptyGrad = ctx.createRadialGradient(cx, cy - innerRadius * 0.3, 0, cx, cy, innerRadius);
+      emptyGrad.addColorStop(0, "#334155");
+      emptyGrad.addColorStop(1, "#1e293b");
+      ctx.fillStyle = emptyGrad;
       ctx.fill();
-      ctx.fillStyle = "rgba(148, 163, 184, 0.4)";
-      ctx.font = "500 16px Inter, system-ui, sans-serif";
+      ctx.fillStyle = "rgba(148, 163, 184, 0.5)";
+      ctx.font = "600 16px Inter, system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText("Add options to spin!", cx, cy);
       ctx.restore();
       return;
     }
-    
+
     const count = state.options.length;
     const sliceAngle = (Math.PI * 2) / count;
-    
-    // Draw segments
+
+    // === DRAW SEGMENTS ===
     for (let i = 0; i < count; i++) {
       const opt = state.options[i];
       const start = state.rotation + i * sliceAngle;
       const end = start + sliceAngle;
       const mid = start + sliceAngle / 2;
-      
+
+      // Main segment fill with radial gradient for 3D effect
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, radius * 0.94, start, end);
+      ctx.arc(cx, cy, innerRadius, start, end);
       ctx.closePath();
       
-      // Gradient fill
-      const gx1 = cx + Math.cos(mid) * radius * 0.2;
-      const gy1 = cy + Math.sin(mid) * radius * 0.2;
-      const gx2 = cx + Math.cos(mid) * radius * 0.9;
-      const gy2 = cy + Math.sin(mid) * radius * 0.9;
+      // Create a radial gradient from center outward for 3D depth
+      const segGrad = ctx.createRadialGradient(
+        cx, cy - innerRadius * 0.4, 0,  // Light source from top
+        cx, cy, innerRadius
+      );
       
-      const segGrad = ctx.createLinearGradient(gx1, gy1, gx2, gy2);
-      segGrad.addColorStop(0, opt.color.gradient[0]);
-      segGrad.addColorStop(1, opt.color.gradient[1]);
+      // Parse the color and create lighter/darker versions
+      const baseColor = opt.color.solid;
+      segGrad.addColorStop(0, lightenColor(baseColor, 30));
+      segGrad.addColorStop(0.4, baseColor);
+      segGrad.addColorStop(0.8, darkenColor(baseColor, 15));
+      segGrad.addColorStop(1, darkenColor(baseColor, 25));
+      
       ctx.fillStyle = segGrad;
       ctx.fill();
-      
-      // Segment border
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.restore();
-      
-      // Highlight
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, radius * 0.94, start, start + sliceAngle * 0.35);
-      ctx.closePath();
-      ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
-      ctx.fill();
-      ctx.restore();
-      
-      // Text
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(mid);
-      ctx.textAlign = "right";
-      ctx.textBaseline = "middle";
-      
-      // Shadow
-      ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-      ctx.font = "600 14px Inter, system-ui, sans-serif";
-      const text = truncate(ctx, opt.label, radius * 0.6);
-      ctx.fillText(text, radius * 0.86, 2);
-      
-      // Text
-      ctx.fillStyle = "#ffffff";
-      ctx.fillText(text, radius * 0.86, 0);
       ctx.restore();
     }
     
-    // Outer glow ring
+    // === SEGMENT DIVIDERS (clean lines) ===
+    ctx.save();
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+      ctx.lineWidth = 2;
+    for (let i = 0; i < count; i++) {
+      const angle = state.rotation + i * sliceAngle;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(
+        cx + Math.cos(angle) * innerRadius,
+        cy + Math.sin(angle) * innerRadius
+      );
+      ctx.stroke();
+    }
+      ctx.restore();
+    
+    // === DRAW TEXT ON SEGMENTS ===
+    for (let i = 0; i < count; i++) {
+      const opt = state.options[i];
+      const start = state.rotation + i * sliceAngle;
+      const mid = start + sliceAngle / 2;
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(mid);
+      
+      // Text styling
+      ctx.font = "bold 14px Inter, system-ui, sans-serif";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      
+      const label = truncate(ctx, opt.label, innerRadius * 0.55);
+      const textX = innerRadius * 0.85;
+      
+      // Text shadow for depth
+      ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+      ctx.fillText(label, textX + 1, 1);
+      
+      // Main text (white)
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(label, textX, 0);
+      
+      ctx.restore();
+    }
+
+    // === OUTER RING HIGHLIGHT (top) ===
     ctx.save();
     ctx.beginPath();
-    ctx.arc(cx, cy, radius * 0.94, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
-    ctx.lineWidth = 2;
+    ctx.arc(cx, cy, innerRadius, Math.PI * 1.2, Math.PI * 1.8);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+    ctx.lineWidth = 3;
     ctx.stroke();
     ctx.restore();
+    
+    // === CENTER HUB - Metallic look ===
+    const hubRadius = innerRadius * 0.18;
+    
+    // Hub outer ring
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, hubRadius + 4, 0, Math.PI * 2);
+    const hubRingGrad = ctx.createLinearGradient(cx, cy - hubRadius - 4, cx, cy + hubRadius + 4);
+    hubRingGrad.addColorStop(0, "#fbbf24");
+    hubRingGrad.addColorStop(0.3, "#fcd34d");
+    hubRingGrad.addColorStop(0.5, "#fef3c7");
+    hubRingGrad.addColorStop(0.7, "#fcd34d");
+    hubRingGrad.addColorStop(1, "#b45309");
+    ctx.fillStyle = hubRingGrad;
+    ctx.fill();
+    ctx.restore();
+    
+    // Hub main body
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, hubRadius, 0, Math.PI * 2);
+    const hubGrad = ctx.createRadialGradient(cx, cy - hubRadius * 0.5, 0, cx, cy, hubRadius);
+    hubGrad.addColorStop(0, "#374151");
+    hubGrad.addColorStop(0.5, "#1f2937");
+    hubGrad.addColorStop(1, "#111827");
+    ctx.fillStyle = hubGrad;
+    ctx.fill();
+    ctx.restore();
+    
+    // Hub inner highlight
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy - hubRadius * 0.2, hubRadius * 0.4, 0, Math.PI * 2);
+    const hubHighlight = ctx.createRadialGradient(cx, cy - hubRadius * 0.3, 0, cx, cy - hubRadius * 0.2, hubRadius * 0.4);
+    hubHighlight.addColorStop(0, "rgba(255, 255, 255, 0.3)");
+    hubHighlight.addColorStop(1, "rgba(255, 255, 255, 0)");
+    ctx.fillStyle = hubHighlight;
+    ctx.fill();
+    ctx.restore();
+  }
+  
+  // Helper: Lighten a hex color
+  function lightenColor(hex, percent) {
+    const num = parseInt(hex.replace("#", ""), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.min(255, (num >> 16) + amt);
+    const G = Math.min(255, ((num >> 8) & 0x00FF) + amt);
+    const B = Math.min(255, (num & 0x0000FF) + amt);
+    return `rgb(${R}, ${G}, ${B})`;
+  }
+  
+  // Helper: Darken a hex color
+  function darkenColor(hex, percent) {
+    const num = parseInt(hex.replace("#", ""), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = Math.max(0, (num >> 16) - amt);
+    const G = Math.max(0, ((num >> 8) & 0x00FF) - amt);
+    const B = Math.max(0, (num & 0x0000FF) - amt);
+    return `rgb(${R}, ${G}, ${B})`;
   }
 
   function truncate(ctx, text, maxW) {
@@ -888,7 +1130,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // ==================== WHEEL ACTIONS ====================
-  
+
   function addOption(label) {
     const trimmed = label.trim();
     if (!trimmed) return;
@@ -944,7 +1186,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // ==================== SPIN LOGIC ====================
-  
+
   let lastTickAngle = 0;
 
   function spin() {
@@ -954,7 +1196,7 @@ document.addEventListener("DOMContentLoaded", function () {
       alert("Add at least one option first!");
       return;
     }
-    
+
     state.isSpinning = true;
     
     if (spinButton) {
@@ -965,7 +1207,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     
     playSpinStart();
-    
+    startSpinAmbience();
+
     const count = state.options.length;
     const sliceAngle = (Math.PI * 2) / count;
     const winIndex = Math.floor(random() * count);
@@ -980,28 +1223,37 @@ document.addEventListener("DOMContentLoaded", function () {
     
     const duration = 5500 + random() * 2000;
     const startTime = performance.now();
+    let lastFrameTime = startTime;
     
     function easeOut(t) {
       return 1 - Math.pow(1 - t, 5);
     }
-    
+
     function frame(now) {
       const elapsed = now - startTime;
       const t = Math.min(elapsed / duration, 1);
       const eased = easeOut(t);
-      
+      const speed = 1 - t; // Speed decreases as we approach end
+
       state.rotation = startRot + delta * eased;
       renderWheel();
       
-      // Tick sounds
+      // Update spin ambience with current speed
+      updateSpinAmbience(speed);
+      
+      // Calculate rotation speed for tick timing
+      const frameTime = now - lastFrameTime;
+      lastFrameTime = now;
+      
+      // Tick sounds based on segment crossings
       const curr = normalizeAngle(state.rotation);
       const diff = Math.abs(curr - lastTickAngle);
       
-      if (diff > sliceAngle * 0.7 || diff < sliceAngle * 0.2) {
-        if (t < 0.92) {
-          playTick();
+      if (diff > sliceAngle * 0.8 || (diff > 0.01 && diff < sliceAngle * 0.3)) {
+        if (t < 0.95) {
+          playTick(speed + 0.5);
           // Sparkle effect
-          if (wheelSparkles) {
+          if (wheelSparkles && Math.random() > 0.5) {
             const rect = wheelSparkles.getBoundingClientRect();
             createSparkle(
               Math.random() * rect.width,
@@ -1012,14 +1264,14 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         lastTickAngle = curr;
       }
-      
+
       if (t < 1) {
         requestAnimationFrame(frame);
       } else {
         finishSpin(winIndex);
       }
     }
-    
+
     requestAnimationFrame(frame);
   }
 
@@ -1027,6 +1279,9 @@ document.addEventListener("DOMContentLoaded", function () {
     state.rotation = normalizeAngle(state.rotation);
     state.isSpinning = false;
     
+    // Stop spin ambience
+    stopSpinAmbience();
+
     if (spinButton) {
       spinButton.disabled = false;
       spinButton.classList.remove("is-spinning");
@@ -1039,7 +1294,7 @@ document.addEventListener("DOMContentLoaded", function () {
       renderResult("Something went wrong. Try again!");
       return;
     }
-    
+
     // Celebration!
     playWinSound();
     launchConfetti();
@@ -1085,8 +1340,8 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(() => showToast("✓ Copied to clipboard!"))
         .catch(() => showToast("Failed to copy"));
     } else {
-      shareLinkInput.select();
-      try {
+    shareLinkInput.select();
+    try {
         document.execCommand("copy");
         showToast("✓ Copied!");
       } catch {
@@ -1104,7 +1359,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // ==================== EVENT LISTENERS ====================
-  
+
   if (optionForm && newOptionInput) {
     optionForm.addEventListener("submit", e => {
       e.preventDefault();
@@ -1148,6 +1403,21 @@ document.addEventListener("DOMContentLoaded", function () {
   if (soundToggle) {
     soundToggle.addEventListener("click", toggleSound);
   }
+  
+  if (volumeSlider) {
+    volumeSlider.addEventListener("input", () => {
+      const vol = parseInt(volumeSlider.value) / 100;
+      state.volume = vol;
+      setVolume(vol);
+      updateVolumeUI();
+      saveSoundPref();
+    });
+    
+    // Play a test sound on release
+    volumeSlider.addEventListener("change", () => {
+      playClick();
+    });
+  }
 
   // ==================== INIT ====================
   
@@ -1156,6 +1426,7 @@ document.addEventListener("DOMContentLoaded", function () {
   render();
   initParticles();
   resizeConfettiCanvas();
+  updateVolumeUI();
 
   window.addEventListener("resize", () => {
     renderWheel();
