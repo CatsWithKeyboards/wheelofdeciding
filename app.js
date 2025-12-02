@@ -88,9 +88,11 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   
   function setVolume(vol) {
-    state.volume = vol;
+    state.volume = Math.max(0, Math.min(1, vol)); // Clamp between 0 and 1
+    // Ensure audio context is initialized
+    const ctx = getAudioContext();
     if (masterGain) {
-      masterGain.gain.value = vol;
+      masterGain.gain.value = state.volume;
     }
   }
 
@@ -825,8 +827,15 @@ document.addEventListener("DOMContentLoaded", function () {
   
   function updateVolumeUI() {
     if (volumeSlider) {
-      volumeSlider.value = Math.round(state.volume * 100);
-      volumeSlider.style.setProperty('--volume-percent', `${state.volume * 100}%`);
+      const volPercent = Math.round(state.volume * 100);
+      volumeSlider.value = volPercent;
+      // Update CSS variable on the slider element itself
+      volumeSlider.style.setProperty('--volume-percent', `${volPercent}%`);
+      // Also update on the wrapper for the gradient
+      const wrap = volumeSlider.closest('.volume-slider-wrap');
+      if (wrap) {
+        wrap.style.setProperty('--volume-percent', `${volPercent}%`);
+      }
     }
     if (volumeValue) {
       volumeValue.textContent = `${Math.round(state.volume * 100)}%`;
@@ -1122,6 +1131,8 @@ document.addEventListener("DOMContentLoaded", function () {
   // ==================== SPIN LOGIC ====================
 
   let lastTickAngle = 0;
+  let lastTickTime = 0;
+  let tickCooldown = 0;
 
   function spin() {
     if (state.isSpinning) return;
@@ -1130,7 +1141,7 @@ document.addEventListener("DOMContentLoaded", function () {
       alert("Add at least one option first!");
       return;
     }
-
+    
     state.isSpinning = true;
     
     if (spinButton) {
@@ -1142,12 +1153,14 @@ document.addEventListener("DOMContentLoaded", function () {
     
     playSpinStart();
     startSpinAmbience();
-
+    
     const count = state.options.length;
     const sliceAngle = (Math.PI * 2) / count;
     const winIndex = Math.floor(random() * count);
     const startRot = normalizeAngle(state.rotation);
     lastTickAngle = startRot;
+    lastTickTime = performance.now();
+    tickCooldown = 0;
     
     const spins = 6 + Math.floor(random() * 4);
     const targetBase = -Math.PI / 2 - (winIndex * sliceAngle + sliceAngle / 2);
@@ -1157,62 +1170,59 @@ document.addEventListener("DOMContentLoaded", function () {
     
     const duration = 5500 + random() * 2000;
     const startTime = performance.now();
-    let lastFrameTime = startTime;
     
     function easeOut(t) {
       return 1 - Math.pow(1 - t, 5);
     }
-
+    
     function frame(now) {
       const elapsed = now - startTime;
       const t = Math.min(elapsed / duration, 1);
       const eased = easeOut(t);
       const speed = 1 - t; // Speed decreases as we approach end
-
+      
       state.rotation = startRot + delta * eased;
       renderWheel();
       
       // Update spin ambience with current speed
       updateSpinAmbience(speed);
       
-      // Calculate rotation speed for tick timing
-      const frameTime = now - lastFrameTime;
-      lastFrameTime = now;
-      
-      // Tick sounds based on segment crossings - Wheel of Fortune style
+      // Tick sounds - only when crossing segment boundaries
       const curr = normalizeAngle(state.rotation);
-      const diff = Math.abs(curr - lastTickAngle);
+      const angleDiff = Math.abs(curr - lastTickAngle);
       
-      if (diff > sliceAngle * 0.8 || (diff > 0.01 && diff < sliceAngle * 0.3)) {
-        // Play tick - louder/more dramatic as we slow down (building suspense!)
-        if (t < 0.98) {
-          playTick();
-          
-          // Sparkle effect on faster spins
-          if (wheelSparkles && speed > 0.3 && Math.random() > 0.6) {
-            const rect = wheelSparkles.getBoundingClientRect();
-            createSparkle(
-              Math.random() * rect.width,
-              Math.random() * rect.height,
-              wheelSparkles
-            );
-          }
-        }
+      // Calculate minimum time between ticks based on speed (faster = shorter cooldown)
+      const minTickInterval = Math.max(30, 150 * speed); // 30ms minimum, up to 150ms when slow
+      const timeSinceLastTick = now - lastTickTime;
+      
+      // Only play tick when:
+      // 1. We've crossed a significant portion of a segment (wrapped around or crossed boundary)
+      // 2. Enough time has passed since last tick (prevents spam)
+      const hasCrossedBoundary = angleDiff > sliceAngle * 0.5 || angleDiff < sliceAngle * 0.1;
+      
+      if (hasCrossedBoundary && timeSinceLastTick >= minTickInterval && t < 0.99) {
+        playTick();
         lastTickAngle = curr;
+        lastTickTime = now;
+        
+        // Sparkle effect on faster spins
+        if (wheelSparkles && speed > 0.3 && Math.random() > 0.7) {
+          const rect = wheelSparkles.getBoundingClientRect();
+          createSparkle(
+            Math.random() * rect.width,
+            Math.random() * rect.height,
+            wheelSparkles
+          );
+        }
       }
       
-      // Play dramatic "final ticks" when very slow (the suspenseful ending!)
-      if (t > 0.92 && t < 0.99 && speed < 0.15) {
-        // These are the slow, dramatic final ticks
-      }
-
       if (t < 1) {
         requestAnimationFrame(frame);
       } else {
         finishSpin(winIndex);
       }
     }
-
+    
     requestAnimationFrame(frame);
   }
 
@@ -1346,9 +1356,8 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   
   if (volumeSlider) {
-    volumeSlider.addEventListener("input", () => {
-      const vol = parseInt(volumeSlider.value) / 100;
-      state.volume = vol;
+    volumeSlider.addEventListener("input", (e) => {
+      const vol = parseFloat(e.target.value) / 100;
       setVolume(vol);
       updateVolumeUI();
       saveSoundPref();
@@ -1356,7 +1365,9 @@ document.addEventListener("DOMContentLoaded", function () {
     
     // Play a test sound on release
     volumeSlider.addEventListener("change", () => {
-      playClick();
+      if (state.soundEnabled) {
+        playClick();
+      }
     });
   }
 
