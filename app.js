@@ -94,28 +94,32 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // Premium tick sound - casino-style clicker
+  // Wheel of Fortune style tick - the iconic "clicker" sound
   function playTick(speed = 1) {
     if (!state.soundEnabled) return;
     try {
       const ctx = getAudioContext();
       const now = ctx.currentTime;
       
-      // Layer 1: Sharp attack click
+      // The Wheel of Fortune tick is a sharp, woody "tock" sound
+      // It's created by the pegs hitting the leather flapper
+      
+      // Main click - sharp transient
       const click = ctx.createOscillator();
       const clickGain = ctx.createGain();
       const clickFilter = ctx.createBiquadFilter();
       
+      // Square wave for sharp attack, specific frequency for that "tock"
       click.type = "square";
-      click.frequency.setValueAtTime(2500, now);
-      click.frequency.exponentialRampToValueAtTime(800, now + 0.015);
+      click.frequency.setValueAtTime(1800, now);
+      click.frequency.exponentialRampToValueAtTime(400, now + 0.008);
       
-      clickFilter.type = "highpass";
-      clickFilter.frequency.value = 800;
-      clickFilter.Q.value = 1;
+      clickFilter.type = "bandpass";
+      clickFilter.frequency.value = 1200;
+      clickFilter.Q.value = 2;
       
-      clickGain.gain.setValueAtTime(0.25 * Math.min(speed, 1.5), now);
-      clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+      clickGain.gain.setValueAtTime(0.35, now);
+      clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
       
       click.connect(clickFilter);
       clickFilter.connect(clickGain);
@@ -124,260 +128,190 @@ document.addEventListener("DOMContentLoaded", function () {
       click.start(now);
       click.stop(now + 0.03);
       
-      // Layer 2: Body thump
-      const thump = ctx.createOscillator();
-      const thumpGain = ctx.createGain();
+      // Resonant body - gives it that hollow "clack" character
+      const body = ctx.createOscillator();
+      const bodyGain = ctx.createGain();
+      const bodyFilter = ctx.createBiquadFilter();
       
-      thump.type = "sine";
-      thump.frequency.setValueAtTime(150 + Math.random() * 50, now);
-      thump.frequency.exponentialRampToValueAtTime(80, now + 0.05);
+      body.type = "triangle";
+      body.frequency.setValueAtTime(800, now);
+      body.frequency.exponentialRampToValueAtTime(200, now + 0.04);
       
-      thumpGain.gain.setValueAtTime(0.15, now);
-      thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+      bodyFilter.type = "bandpass";
+      bodyFilter.frequency.value = 600;
+      bodyFilter.Q.value = 3;
       
-      thump.connect(thumpGain);
-      thumpGain.connect(masterGain);
+      bodyGain.gain.setValueAtTime(0.25, now);
+      bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
       
-      thump.start(now);
-      thump.stop(now + 0.06);
+      body.connect(bodyFilter);
+      bodyFilter.connect(bodyGain);
+      bodyGain.connect(masterGain);
       
-      // Layer 3: High resonance ping
-      const ping = ctx.createOscillator();
-      const pingGain = ctx.createGain();
+      body.start(now);
+      body.stop(now + 0.05);
       
-      ping.type = "sine";
-      ping.frequency.value = 3000 + Math.random() * 500;
+      // Subtle high "ting" for brightness
+      const ting = ctx.createOscillator();
+      const tingGain = ctx.createGain();
       
-      pingGain.gain.setValueAtTime(0.08, now);
-      pingGain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
+      ting.type = "sine";
+      ting.frequency.value = 2800;
       
-      ping.connect(pingGain);
-      pingGain.connect(masterGain);
+      tingGain.gain.setValueAtTime(0.08, now);
+      tingGain.gain.exponentialRampToValueAtTime(0.001, now + 0.015);
       
-      ping.start(now);
-      ping.stop(now + 0.02);
+      ting.connect(tingGain);
+      tingGain.connect(masterGain);
+      
+      ting.start(now);
+      ting.stop(now + 0.02);
     } catch (e) {}
   }
 
-  // Whoosh/spin start - more dramatic
+  // Wheel of Fortune style spin start - exciting "here we go!" feel
   function playSpinStart() {
     if (!state.soundEnabled) return;
     try {
       const ctx = getAudioContext();
       const now = ctx.currentTime;
       
-      // Ascending whoosh with noise
-      const duration = 0.8;
-      const bufferSize = ctx.sampleRate * duration;
-      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
+      // Quick ascending "whomp" like the wheel being pushed
+      const whomp = ctx.createOscillator();
+      const whompGain = ctx.createGain();
+      const whompFilter = ctx.createBiquadFilter();
       
-      for (let i = 0; i < bufferSize; i++) {
-        const t = i / bufferSize;
-        const env = Math.sin(t * Math.PI * 0.5) * (1 - t * 0.3);
-        data[i] = (Math.random() * 2 - 1) * env * 0.5;
-      }
+      whomp.type = "sawtooth";
+      whomp.frequency.setValueAtTime(80, now);
+      whomp.frequency.exponentialRampToValueAtTime(250, now + 0.15);
       
-      const noise = ctx.createBufferSource();
-      const noiseFilter = ctx.createBiquadFilter();
-      const noiseGain = ctx.createGain();
+      whompFilter.type = "lowpass";
+      whompFilter.frequency.setValueAtTime(200, now);
+      whompFilter.frequency.exponentialRampToValueAtTime(800, now + 0.15);
       
-      noise.buffer = buffer;
-      noiseFilter.type = "bandpass";
-      noiseFilter.frequency.setValueAtTime(400, now);
-      noiseFilter.frequency.exponentialRampToValueAtTime(3000, now + 0.3);
-      noiseFilter.frequency.exponentialRampToValueAtTime(1500, now + duration);
-      noiseFilter.Q.value = 0.7;
+      whompGain.gain.setValueAtTime(0.4, now);
+      whompGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
       
-      noiseGain.gain.setValueAtTime(0.4, now);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      whomp.connect(whompFilter);
+      whompFilter.connect(whompGain);
+      whompGain.connect(masterGain);
+      whomp.start(now);
+      whomp.stop(now + 0.2);
       
-      noise.connect(noiseFilter);
-      noiseFilter.connect(noiseGain);
-      noiseGain.connect(masterGain);
-      noise.start(now);
+      // Bright "ding" accent
+      const ding = ctx.createOscillator();
+      const dingGain = ctx.createGain();
       
-      // Rising tone sweep
-      const sweep = ctx.createOscillator();
-      const sweepGain = ctx.createGain();
+      ding.type = "sine";
+      ding.frequency.value = 880;
       
-      sweep.type = "sawtooth";
-      sweep.frequency.setValueAtTime(100, now);
-      sweep.frequency.exponentialRampToValueAtTime(600, now + 0.5);
+      dingGain.gain.setValueAtTime(0.2, now + 0.05);
+      dingGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
       
-      sweepGain.gain.setValueAtTime(0.12, now);
-      sweepGain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-      
-      sweep.connect(sweepGain);
-      sweepGain.connect(masterGain);
-      sweep.start(now);
-      sweep.stop(now + 0.6);
-      
-      // Power-up chord
-      [130.81, 164.81, 196].forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "triangle";
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0.08, now + i * 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4 + i * 0.05);
-        osc.connect(gain);
-        gain.connect(masterGain);
-        osc.start(now + i * 0.05);
-        osc.stop(now + 0.5);
-      });
+      ding.connect(dingGain);
+      dingGain.connect(masterGain);
+      ding.start(now + 0.05);
+      ding.stop(now + 0.3);
     } catch (e) {}
   }
 
-  // Continuous spinning ambience
-  let spinAmbience = null;
-  
-  function startSpinAmbience() {
-    if (!state.soundEnabled || spinAmbience) return;
-    try {
-      const ctx = getAudioContext();
-      
-      // Create looping whoosh
-      const bufferSize = ctx.sampleRate * 2;
-      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-      
-      for (let i = 0; i < bufferSize; i++) {
-        const t = i / bufferSize;
-        data[i] = (Math.random() * 2 - 1) * 0.3 * (0.5 + 0.5 * Math.sin(t * Math.PI * 4));
-      }
-      
-      const source = ctx.createBufferSource();
-      const filter = ctx.createBiquadFilter();
-      const gain = ctx.createGain();
-      
-      source.buffer = buffer;
-      source.loop = true;
-      
-      filter.type = "bandpass";
-      filter.frequency.value = 800;
-      filter.Q.value = 0.5;
-      
-      gain.gain.value = 0.15;
-      
-      source.connect(filter);
-      filter.connect(gain);
-      gain.connect(masterGain);
-      source.start();
-      
-      spinAmbience = { source, gain, filter };
-    } catch (e) {}
-  }
-  
-  function stopSpinAmbience() {
-    if (spinAmbience) {
-      try {
-        spinAmbience.gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
-        setTimeout(() => {
-          spinAmbience.source.stop();
-          spinAmbience = null;
-        }, 600);
-      } catch (e) {
-        spinAmbience = null;
-      }
-    }
-  }
-  
-  function updateSpinAmbience(speed) {
-    if (spinAmbience && spinAmbience.filter) {
-      const freq = 400 + speed * 1200;
-      spinAmbience.filter.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.1);
-      spinAmbience.gain.gain.setTargetAtTime(0.1 + speed * 0.15, audioCtx.currentTime, 0.1);
-    }
-  }
+  // Spinning ambience functions (disabled - just ticks now)
+  function startSpinAmbience() {}
+  function stopSpinAmbience() {}
+  function updateSpinAmbience(speed) {}
 
-  // Victory fanfare - more epic
+  // Wheel of Fortune style win sound - bell dings and celebration
   function playWinSound() {
     if (!state.soundEnabled) return;
     try {
       const ctx = getAudioContext();
       const now = ctx.currentTime;
       
-      // Big impact hit
-      const impact = ctx.createOscillator();
-      const impactGain = ctx.createGain();
-      impact.type = "sine";
-      impact.frequency.setValueAtTime(80, now);
-      impact.frequency.exponentialRampToValueAtTime(40, now + 0.3);
-      impactGain.gain.setValueAtTime(0.5, now);
-      impactGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-      impact.connect(impactGain);
-      impactGain.connect(masterGain);
-      impact.start(now);
-      impact.stop(now + 0.4);
+      // Main "DING DING DING!" bells (the iconic WoF sound)
+      const bellFreqs = [1318.51, 1567.98, 2093.00]; // E6, G6, C7
       
-      // Victory fanfare notes (C major 7th arpeggio)
-      const notes = [523.25, 659.25, 783.99, 987.77, 1046.50];
-      
-      notes.forEach((freq, i) => {
-        const osc = ctx.createOscillator();
-        const osc2 = ctx.createOscillator();
-        const gain = ctx.createGain();
-        const filter = ctx.createBiquadFilter();
+      bellFreqs.forEach((freq, i) => {
+        const bell = ctx.createOscillator();
+        const bellGain = ctx.createGain();
+        const bellFilter = ctx.createBiquadFilter();
         
-        osc.type = "sine";
-        osc.frequency.value = freq;
-        osc2.type = "triangle";
-        osc2.frequency.value = freq * 1.002; // Slight detune for richness
+        bell.type = "sine";
+        bell.frequency.value = freq;
         
-        filter.type = "lowpass";
-        filter.frequency.value = 4000;
+        // Bell-like filter resonance
+        bellFilter.type = "bandpass";
+        bellFilter.frequency.value = freq;
+        bellFilter.Q.value = 15;
         
-        const start = now + 0.05 + i * 0.07;
-        gain.gain.setValueAtTime(0, start);
-        gain.gain.linearRampToValueAtTime(0.2, start + 0.02);
-        gain.gain.setValueAtTime(0.2, start + 0.15);
-        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.8);
+        const start = now + i * 0.12;
+        bellGain.gain.setValueAtTime(0, start);
+        bellGain.gain.linearRampToValueAtTime(0.35, start + 0.005);
+        bellGain.gain.exponentialRampToValueAtTime(0.001, start + 0.6);
         
-        osc.connect(filter);
-        osc2.connect(filter);
-        filter.connect(gain);
-        gain.connect(masterGain);
+        bell.connect(bellFilter);
+        bellFilter.connect(bellGain);
+        bellGain.connect(masterGain);
         
-        osc.start(start);
-        osc.stop(start + 0.8);
-        osc2.start(start);
-        osc2.stop(start + 0.8);
+        bell.start(start);
+        bell.stop(start + 0.6);
+        
+        // Add harmonic overtone for richness
+        const overtone = ctx.createOscillator();
+        const overtoneGain = ctx.createGain();
+        overtone.type = "sine";
+        overtone.frequency.value = freq * 2.5;
+        overtoneGain.gain.setValueAtTime(0, start);
+        overtoneGain.gain.linearRampToValueAtTime(0.08, start + 0.005);
+        overtoneGain.gain.exponentialRampToValueAtTime(0.001, start + 0.3);
+        overtone.connect(overtoneGain);
+        overtoneGain.connect(masterGain);
+        overtone.start(start);
+        overtone.stop(start + 0.3);
       });
       
-      // Sparkle/shimmer overlay
-      setTimeout(() => {
-        for (let i = 0; i < 15; i++) {
-          setTimeout(() => {
+      // Bright celebratory "sparkle" cascade
+      for (let i = 0; i < 8; i++) {
+        setTimeout(() => {
+          try {
             const sparkle = ctx.createOscillator();
             const sparkleGain = ctx.createGain();
+            
             sparkle.type = "sine";
-            sparkle.frequency.value = 2000 + Math.random() * 3000;
-            sparkleGain.gain.setValueAtTime(0.06, ctx.currentTime);
-            sparkleGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+            sparkle.frequency.value = 2500 + i * 200 + Math.random() * 300;
+            
+            sparkleGain.gain.setValueAtTime(0.1, ctx.currentTime);
+            sparkleGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+            
             sparkle.connect(sparkleGain);
             sparkleGain.connect(masterGain);
             sparkle.start();
-            sparkle.stop(ctx.currentTime + 0.12);
-          }, i * 35);
-        }
-      }, 250);
+            sparkle.stop(ctx.currentTime + 0.15);
+          } catch (e) {}
+        }, 350 + i * 50);
+      }
       
-      // Final chord
+      // Final triumphant chord
       setTimeout(() => {
-        [261.63, 329.63, 392, 523.25].forEach(freq => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = "sine";
-          osc.frequency.value = freq;
-          gain.gain.setValueAtTime(0.12, ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
-          osc.connect(gain);
-          gain.connect(masterGain);
-          osc.start();
-          osc.stop(ctx.currentTime + 1.2);
-        });
-      }, 450);
+        try {
+          // C major chord (bright and happy)
+          [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
+            osc.type = "sine";
+            osc.frequency.value = freq;
+            
+            gain.gain.setValueAtTime(0, ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.5);
+            
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.start();
+            osc.stop(ctx.currentTime + 1.5);
+          });
+        } catch (e) {}
+      }, 500);
     } catch (e) {}
   }
 
@@ -1245,15 +1179,17 @@ document.addEventListener("DOMContentLoaded", function () {
       const frameTime = now - lastFrameTime;
       lastFrameTime = now;
       
-      // Tick sounds based on segment crossings
+      // Tick sounds based on segment crossings - Wheel of Fortune style
       const curr = normalizeAngle(state.rotation);
       const diff = Math.abs(curr - lastTickAngle);
       
       if (diff > sliceAngle * 0.8 || (diff > 0.01 && diff < sliceAngle * 0.3)) {
-        if (t < 0.95) {
-          playTick(speed + 0.5);
-          // Sparkle effect
-          if (wheelSparkles && Math.random() > 0.5) {
+        // Play tick - louder/more dramatic as we slow down (building suspense!)
+        if (t < 0.98) {
+          playTick();
+          
+          // Sparkle effect on faster spins
+          if (wheelSparkles && speed > 0.3 && Math.random() > 0.6) {
             const rect = wheelSparkles.getBoundingClientRect();
             createSparkle(
               Math.random() * rect.width,
@@ -1263,6 +1199,11 @@ document.addEventListener("DOMContentLoaded", function () {
           }
         }
         lastTickAngle = curr;
+      }
+      
+      // Play dramatic "final ticks" when very slow (the suspenseful ending!)
+      if (t > 0.92 && t < 0.99 && speed < 0.15) {
+        // These are the slow, dramatic final ticks
       }
 
       if (t < 1) {
