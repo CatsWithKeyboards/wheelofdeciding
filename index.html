@@ -12,17 +12,47 @@
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://wheelofdeciding.com/" />
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+  
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="page">
+    <!-- Animated background -->
+    <div class="bg-effects" aria-hidden="true">
+      <div class="bg-orb bg-orb-1"></div>
+      <div class="bg-orb bg-orb-2"></div>
+      <div class="bg-orb bg-orb-3"></div>
+      <canvas id="particleCanvas" class="particle-canvas"></canvas>
+    </div>
+
     <header class="site-header">
       <div class="site-header-inner">
         <div class="logo">
-          <span class="logo-mark" aria-hidden="true">🎡</span>
+          <div class="logo-mark" aria-hidden="true">
+            <svg viewBox="0 0 40 40" class="logo-wheel-icon">
+              <circle cx="20" cy="20" r="18" fill="url(#logoGrad)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+              <circle cx="20" cy="20" r="4" fill="#0f172a"/>
+              <defs>
+                <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#f97316"/>
+                  <stop offset="50%" stop-color="#fb7185"/>
+                  <stop offset="100%" stop-color="#a855f7"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
           <span class="logo-text">Wheel of Deciding</span>
         </div>
-        <p class="tagline">Put your options on the wheel and let chance decide.</p>
+        <div class="header-controls">
+          <button type="button" id="soundToggle" class="sound-toggle" aria-label="Toggle sound effects">
+            <span class="sound-icon sound-icon-on">🔊</span>
+            <span class="sound-icon sound-icon-off">🔇</span>
+          </button>
+          <p class="tagline">Put your options on the wheel and let chance decide.</p>
+        </div>
       </div>
     </header>
 
@@ -30,16 +60,30 @@
       <section class="wheel-panel" aria-labelledby="wheel-heading">
         <h1 id="wheel-heading" class="visually-hidden">Wheel of Deciding</h1>
 
-        <div class="wheel-wrapper" aria-hidden="true">
-          <div class="wheel-shadow">
-            <canvas id="wheelCanvas" width="500" height="500"></canvas>
-            <div class="wheel-pointer"></div>
+        <div class="wheel-stage">
+          <div class="wheel-glow"></div>
+          <div class="wheel-wrapper" aria-hidden="true">
+            <div class="wheel-frame">
+              <div class="wheel-shadow">
+                <canvas id="wheelCanvas" width="500" height="500"></canvas>
+                <div class="wheel-center-hub">
+                  <div class="hub-inner">
+                    <span class="hub-text">SPIN</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="wheel-pointer">
+              <div class="pointer-shape"></div>
+              <div class="pointer-glow"></div>
+            </div>
           </div>
         </div>
 
         <div class="wheel-controls">
           <button type="button" id="spinButton" class="primary-button spin-button">
-            Spin the wheel
+            <span class="btn-shine"></span>
+            <span class="btn-text">🎰 Spin the wheel</span>
           </button>
           <button type="button" id="resetButton" class="secondary-button">
             Reset wheel
@@ -47,8 +91,11 @@
         </div>
 
         <div id="resultDisplay" class="result-display" role="status" aria-live="polite">
-          Add some options and spin the wheel.
+          <span class="result-text">Add some options and spin the wheel.</span>
         </div>
+
+        <!-- Confetti container -->
+        <canvas id="confettiCanvas" class="confetti-canvas"></canvas>
 
         <section class="history-section" aria-label="Spin history">
           <div class="section-header">
@@ -61,6 +108,7 @@
 
       <aside class="options-panel" aria-label="Wheel options">
         <div class="options-panel-inner">
+          <div class="panel-glow"></div>
           <h2 class="options-heading">Customize your wheel</h2>
           <p class="options-intro">
             Name your wheel, add choices, and spin. Your data is stored only in your browser.
@@ -88,7 +136,7 @@
                 placeholder="Type an option and press Enter"
               />
               <button type="submit" class="primary-button add-button">
-                Add
+                <span class="btn-text">Add</span>
               </button>
             </div>
             <p class="field-help">
