@@ -1,50 +1,60 @@
 document.addEventListener("DOMContentLoaded", function () {
   "use strict";
 
+  // ==================== CONSTANTS ====================
+  
   const STORAGE_KEY = "wheelOfDeciding.v1";
-  const SOUND_STORAGE_KEY = "wheelOfDeciding.sound";
+  const SOUND_KEY = "wheelOfDeciding.sound";
   const MAX_OPTIONS = 64;
 
-  // Enhanced color palette with gradients
-  const COLOR_PALETTE = [
-    { solid: "#f97316", gradient: ["#f97316", "#fb923c"] },
-    { solid: "#22c55e", gradient: ["#22c55e", "#4ade80"] },
-    { solid: "#3b82f6", gradient: ["#3b82f6", "#60a5fa"] },
-    { solid: "#e11d48", gradient: ["#e11d48", "#fb7185"] },
-    { solid: "#a855f7", gradient: ["#a855f7", "#c4b5fd"] },
-    { solid: "#06b6d4", gradient: ["#06b6d4", "#22d3ee"] },
-    { solid: "#eab308", gradient: ["#eab308", "#facc15"] },
-    { solid: "#ec4899", gradient: ["#ec4899", "#f472b6"] },
-    { solid: "#14b8a6", gradient: ["#14b8a6", "#2dd4bf"] },
-    { solid: "#8b5cf6", gradient: ["#8b5cf6", "#a78bfa"] },
-    { solid: "#f43f5e", gradient: ["#f43f5e", "#fb7185"] },
-    { solid: "#0ea5e9", gradient: ["#0ea5e9", "#38bdf8"] }
+  const COLORS = [
+    { solid: "#f97316", gradient: ["#f97316", "#fb923c"], glow: "rgba(249, 115, 22, 0.6)" },
+    { solid: "#22c55e", gradient: ["#22c55e", "#4ade80"], glow: "rgba(34, 197, 94, 0.6)" },
+    { solid: "#3b82f6", gradient: ["#3b82f6", "#60a5fa"], glow: "rgba(59, 130, 246, 0.6)" },
+    { solid: "#e11d48", gradient: ["#e11d48", "#fb7185"], glow: "rgba(225, 29, 72, 0.6)" },
+    { solid: "#a855f7", gradient: ["#a855f7", "#c4b5fd"], glow: "rgba(168, 85, 247, 0.6)" },
+    { solid: "#06b6d4", gradient: ["#06b6d4", "#22d3ee"], glow: "rgba(6, 182, 212, 0.6)" },
+    { solid: "#eab308", gradient: ["#eab308", "#facc15"], glow: "rgba(234, 179, 8, 0.6)" },
+    { solid: "#ec4899", gradient: ["#ec4899", "#f472b6"], glow: "rgba(236, 72, 153, 0.6)" },
+    { solid: "#14b8a6", gradient: ["#14b8a6", "#2dd4bf"], glow: "rgba(20, 184, 166, 0.6)" },
+    { solid: "#8b5cf6", gradient: ["#8b5cf6", "#a78bfa"], glow: "rgba(139, 92, 246, 0.6)" },
+    { solid: "#f43f5e", gradient: ["#f43f5e", "#fb7185"], glow: "rgba(244, 63, 94, 0.6)" },
+    { solid: "#0ea5e9", gradient: ["#0ea5e9", "#38bdf8"], glow: "rgba(14, 165, 233, 0.6)" }
   ];
 
-  // DOM Elements
-  const canvas = document.getElementById("wheelCanvas");
-  const ctx = canvas && canvas.getContext ? canvas.getContext("2d") : null;
-  const particleCanvas = document.getElementById("particleCanvas");
-  const particleCtx = particleCanvas && particleCanvas.getContext ? particleCanvas.getContext("2d") : null;
-  const confettiCanvas = document.getElementById("confettiCanvas");
-  const confettiCtx = confettiCanvas && confettiCanvas.getContext ? confettiCanvas.getContext("2d") : null;
+  // ==================== DOM ELEMENTS ====================
+  
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => document.querySelectorAll(sel);
+  
+  const canvas = $("#wheelCanvas");
+  const ctx = canvas?.getContext("2d");
+  const particleCanvas = $("#particleCanvas");
+  const particleCtx = particleCanvas?.getContext("2d");
+  const confettiCanvas = $("#confettiCanvas");
+  const confettiCtx = confettiCanvas?.getContext("2d");
+  
+  const spinButton = $("#spinButton");
+  const resetButton = $("#resetButton");
+  const resultDisplay = $("#resultDisplay");
+  const resultLabel = $(".result-label");
+  const resultValue = $(".result-value");
+  const historyList = $("#historyList");
+  const clearHistoryBtn = $("#clearHistoryBtn");
+  const optionForm = $("#optionForm");
+  const wheelNameInput = $("#wheelName");
+  const newOptionInput = $("#newOptionInput");
+  const optionsList = $("#optionsList");
+  const optionCountEl = $("#optionCount");
+  const shareLinkInput = $("#shareLink");
+  const copyShareLinkButton = $("#copyShareLinkButton");
+  const shareToast = $("#shareCopyToast");
+  const soundToggle = $("#soundToggle");
+  const wheelFrame = $(".wheel-frame");
+  const wheelSparkles = $("#wheelSparkles");
 
-  const spinButton = document.getElementById("spinButton");
-  const resetButton = document.getElementById("resetButton");
-  const resultDisplay = document.getElementById("resultDisplay");
-  const historyList = document.getElementById("historyList");
-  const optionForm = document.getElementById("optionForm");
-  const wheelNameInput = document.getElementById("wheelName");
-  const newOptionInput = document.getElementById("newOptionInput");
-  const optionsList = document.getElementById("optionsList");
-  const optionCount = document.getElementById("optionCount");
-  const shareLinkInput = document.getElementById("shareLink");
-  const copyShareLinkButton = document.getElementById("copyShareLinkButton");
-  const shareToast = document.getElementById("shareCopyToast");
-  const soundToggle = document.getElementById("soundToggle");
-  const wheelFrame = document.querySelector(".wheel-frame");
-
-  // State
+  // ==================== STATE ====================
+  
   const state = {
     wheelName: "What should we do?",
     options: [],
@@ -54,60 +64,69 @@ document.addEventListener("DOMContentLoaded", function () {
     soundEnabled: true
   };
 
-  // ==================== SOUND SYSTEM ====================
+  // ==================== AUDIO ENGINE ====================
   
-  let audioContext = null;
-
-  function initAudioContext() {
-    if (!audioContext) {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  let audioCtx = null;
+  
+  function getAudioContext() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
-    if (audioContext.state === 'suspended') {
-      audioContext.resume();
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume();
     }
-    return audioContext;
+    return audioCtx;
   }
 
-  function playTone(frequency, duration, type = 'sine', volume = 0.3) {
+  // Synthesized tick sound - mechanical click
+  function playTick() {
     if (!state.soundEnabled) return;
     try {
-      const ctx = initAudioContext();
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
+      const ctx = getAudioContext();
+      const now = ctx.currentTime;
       
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
+      // Click oscillator
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
       
-      oscillator.type = type;
-      oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
+      osc.type = "square";
+      osc.frequency.setValueAtTime(1800 + Math.random() * 400, now);
+      osc.frequency.exponentialRampToValueAtTime(600, now + 0.03);
       
-      gainNode.gain.setValueAtTime(volume, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      filter.type = "bandpass";
+      filter.frequency.value = 2000;
+      filter.Q.value = 2;
       
-      oscillator.start(ctx.currentTime);
-      oscillator.stop(ctx.currentTime + duration);
-    } catch (e) {
-      console.warn("Audio playback failed:", e);
-    }
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+      
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start(now);
+      osc.stop(now + 0.05);
+    } catch (e) {}
   }
 
-  function playTickSound() {
-    playTone(800 + Math.random() * 400, 0.05, 'sine', 0.15);
-  }
-
-  function playSpinStartSound() {
+  // Synthesized whoosh/spin start sound
+  function playSpinStart() {
     if (!state.soundEnabled) return;
     try {
-      const ctx = initAudioContext();
+      const ctx = getAudioContext();
+      const now = ctx.currentTime;
+      const duration = 0.6;
       
-      // Whoosh sound using noise
-      const bufferSize = ctx.sampleRate * 0.3;
+      // Noise-based whoosh
+      const bufferSize = ctx.sampleRate * duration;
       const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
       const data = buffer.getChannelData(0);
       
       for (let i = 0; i < bufferSize; i++) {
         const t = i / bufferSize;
-        data[i] = (Math.random() * 2 - 1) * Math.sin(t * Math.PI) * 0.3;
+        const env = Math.sin(t * Math.PI) * Math.pow(1 - t, 0.5);
+        data[i] = (Math.random() * 2 - 1) * env;
       }
       
       const source = ctx.createBufferSource();
@@ -115,120 +134,184 @@ document.addEventListener("DOMContentLoaded", function () {
       const gain = ctx.createGain();
       
       source.buffer = buffer;
-      filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(1000, ctx.currentTime);
-      filter.frequency.exponentialRampToValueAtTime(3000, ctx.currentTime + 0.3);
+      
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(500, now);
+      filter.frequency.exponentialRampToValueAtTime(4000, now + duration * 0.3);
+      filter.frequency.exponentialRampToValueAtTime(1000, now + duration);
+      filter.Q.value = 1;
+      
+      gain.gain.setValueAtTime(0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
       
       source.connect(filter);
       filter.connect(gain);
       gain.connect(ctx.destination);
       
-      gain.gain.setValueAtTime(0.4, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      source.start(now);
       
-      source.start();
-    } catch (e) {
-      console.warn("Spin sound failed:", e);
-    }
+      // Rising tone
+      const osc = ctx.createOscillator();
+      const oscGain = ctx.createGain();
+      
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(200, now);
+      osc.frequency.exponentialRampToValueAtTime(800, now + 0.4);
+      
+      oscGain.gain.setValueAtTime(0.1, now);
+      oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      
+      osc.connect(oscGain);
+      oscGain.connect(ctx.destination);
+      
+      osc.start(now);
+      osc.stop(now + 0.5);
+    } catch (e) {}
   }
 
+  // Synthesized victory fanfare
   function playWinSound() {
     if (!state.soundEnabled) return;
-    
-    // Victory fanfare
-    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
-    const delays = [0, 0.1, 0.2, 0.3];
-    
-    notes.forEach((freq, i) => {
+    try {
+      const ctx = getAudioContext();
+      const now = ctx.currentTime;
+      
+      // Victory chord progression: C major arpeggio up
+      const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+      const delays = [0, 0.08, 0.16, 0.24];
+      
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const filter = ctx.createBiquadFilter();
+        
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        
+        osc2.type = "triangle";
+        osc2.frequency.value = freq;
+        
+        filter.type = "lowpass";
+        filter.frequency.value = 3000;
+        
+        const startTime = now + delays[i];
+        
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.2, startTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.8);
+        
+        osc.connect(filter);
+        osc2.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.start(startTime);
+        osc.stop(startTime + 0.8);
+        osc2.start(startTime);
+        osc2.stop(startTime + 0.8);
+      });
+      
+      // Shimmer effect
       setTimeout(() => {
-        playTone(freq, 0.4, 'sine', 0.25);
-        // Add harmonics
-        playTone(freq * 2, 0.3, 'sine', 0.1);
-      }, delays[i] * 1000);
-    });
-
-    // Shimmer effect
-    setTimeout(() => {
-      for (let i = 0; i < 8; i++) {
-        setTimeout(() => {
-          playTone(1000 + Math.random() * 2000, 0.1, 'sine', 0.08);
-        }, i * 50);
-      }
-    }, 400);
+        for (let i = 0; i < 12; i++) {
+          setTimeout(() => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
+            osc.type = "sine";
+            osc.frequency.value = 1500 + Math.random() * 2500;
+            
+            gain.gain.setValueAtTime(0.06, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+            
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            
+            osc.start();
+            osc.stop(ctx.currentTime + 0.15);
+          }, i * 40);
+        }
+      }, 300);
+      
+      // Bass thump
+      const bass = ctx.createOscillator();
+      const bassGain = ctx.createGain();
+      
+      bass.type = "sine";
+      bass.frequency.setValueAtTime(150, now + 0.24);
+      bass.frequency.exponentialRampToValueAtTime(50, now + 0.5);
+      
+      bassGain.gain.setValueAtTime(0.3, now + 0.24);
+      bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      
+      bass.connect(bassGain);
+      bassGain.connect(ctx.destination);
+      
+      bass.start(now + 0.24);
+      bass.stop(now + 0.6);
+    } catch (e) {}
   }
 
-  function playClickSound() {
-    playTone(600, 0.08, 'sine', 0.2);
-  }
-
-  // Load sound preference
-  function loadSoundPreference() {
+  // UI click sound
+  function playClick() {
+    if (!state.soundEnabled) return;
     try {
-      const saved = localStorage.getItem(SOUND_STORAGE_KEY);
-      if (saved !== null) {
-        state.soundEnabled = saved === 'true';
-      }
-      updateSoundToggleUI();
-    } catch (e) {
-      console.warn("Failed to load sound preference:", e);
-    }
-  }
-
-  function saveSoundPreference() {
-    try {
-      localStorage.setItem(SOUND_STORAGE_KEY, state.soundEnabled.toString());
-    } catch (e) {
-      console.warn("Failed to save sound preference:", e);
-    }
-  }
-
-  function updateSoundToggleUI() {
-    if (soundToggle) {
-      soundToggle.classList.toggle('is-muted', !state.soundEnabled);
-    }
-  }
-
-  function toggleSound() {
-    state.soundEnabled = !state.soundEnabled;
-    saveSoundPreference();
-    updateSoundToggleUI();
-    if (state.soundEnabled) {
-      playClickSound();
-    }
+      const ctx = getAudioContext();
+      const now = ctx.currentTime;
+      
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(800, now);
+      osc.frequency.exponentialRampToValueAtTime(500, now + 0.1);
+      
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start(now);
+      osc.stop(now + 0.1);
+    } catch (e) {}
   }
 
   // ==================== PARTICLE SYSTEM ====================
-
+  
   const particles = [];
-  const confetti = [];
-  let animationFrame = null;
+  let particleAnimFrame = null;
 
   class Particle {
     constructor(x, y) {
       this.x = x;
       this.y = y;
-      this.size = Math.random() * 2 + 1;
-      this.speedX = (Math.random() - 0.5) * 0.5;
-      this.speedY = (Math.random() - 0.5) * 0.5;
-      this.opacity = Math.random() * 0.5 + 0.2;
-      this.hue = Math.random() * 60 + 15; // Orange-ish hues
+      this.size = Math.random() * 2 + 0.5;
+      this.vx = (Math.random() - 0.5) * 0.3;
+      this.vy = (Math.random() - 0.5) * 0.3;
+      this.alpha = Math.random() * 0.5 + 0.2;
+      this.hue = Math.random() * 40 + 15; // Orange tones
+      this.life = Math.random() * 0.5 + 0.5;
     }
 
     update() {
-      this.x += this.speedX;
-      this.y += this.speedY;
+      this.x += this.vx;
+      this.y += this.vy;
       
-      // Wrap around screen
-      if (this.x < 0) this.x = particleCanvas.width;
-      if (this.x > particleCanvas.width) this.x = 0;
-      if (this.y < 0) this.y = particleCanvas.height;
-      if (this.y > particleCanvas.height) this.y = 0;
+      // Wrap around
+      const w = particleCanvas.width;
+      const h = particleCanvas.height;
+      if (this.x < 0) this.x = w;
+      if (this.x > w) this.x = 0;
+      if (this.y < 0) this.y = h;
+      if (this.y > h) this.y = 0;
     }
 
     draw() {
       particleCtx.beginPath();
       particleCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-      particleCtx.fillStyle = `hsla(${this.hue}, 100%, 60%, ${this.opacity})`;
+      particleCtx.fillStyle = `hsla(${this.hue}, 100%, 65%, ${this.alpha})`;
       particleCtx.fill();
     }
   }
@@ -238,8 +321,8 @@ document.addEventListener("DOMContentLoaded", function () {
     
     resizeParticleCanvas();
     
-    const particleCount = Math.min(50, Math.floor(window.innerWidth / 30));
-    for (let i = 0; i < particleCount; i++) {
+    const count = Math.min(60, Math.floor(window.innerWidth / 25));
+    for (let i = 0; i < count; i++) {
       particles.push(new Particle(
         Math.random() * particleCanvas.width,
         Math.random() * particleCanvas.height
@@ -260,21 +343,23 @@ document.addEventListener("DOMContentLoaded", function () {
     
     particleCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
     
-    particles.forEach(particle => {
-      particle.update();
-      particle.draw();
+    // Draw and update particles
+    particles.forEach(p => {
+      p.update();
+      p.draw();
     });
     
-    // Draw connections between close particles
+    // Draw connections
     for (let i = 0; i < particles.length; i++) {
       for (let j = i + 1; j < particles.length; j++) {
         const dx = particles[i].x - particles[j].x;
         const dy = particles[i].y - particles[j].y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const dist = Math.sqrt(dx * dx + dy * dy);
         
-        if (distance < 100) {
+        if (dist < 120) {
+          const alpha = (1 - dist / 120) * 0.15;
           particleCtx.beginPath();
-          particleCtx.strokeStyle = `rgba(249, 115, 22, ${0.1 * (1 - distance / 100)})`;
+          particleCtx.strokeStyle = `rgba(249, 115, 22, ${alpha})`;
           particleCtx.lineWidth = 0.5;
           particleCtx.moveTo(particles[i].x, particles[i].y);
           particleCtx.lineTo(particles[j].x, particles[j].y);
@@ -283,55 +368,51 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
     
-    animationFrame = requestAnimationFrame(animateParticles);
+    particleAnimFrame = requestAnimationFrame(animateParticles);
   }
 
   // ==================== CONFETTI SYSTEM ====================
+  
+  const confetti = [];
 
-  class ConfettiPiece {
+  class Confetto {
     constructor(x, y) {
       this.x = x;
       this.y = y;
-      this.size = Math.random() * 10 + 5;
-      this.speedX = (Math.random() - 0.5) * 15;
-      this.speedY = Math.random() * -15 - 5;
-      this.gravity = 0.5;
+      this.w = Math.random() * 10 + 6;
+      this.h = this.w * 0.4;
+      this.vx = (Math.random() - 0.5) * 20;
+      this.vy = Math.random() * -18 - 8;
+      this.gravity = 0.4;
       this.rotation = Math.random() * 360;
-      this.rotationSpeed = (Math.random() - 0.5) * 10;
-      this.color = `hsl(${Math.random() * 360}, 100%, 60%)`;
-      this.opacity = 1;
-      this.shape = Math.random() > 0.5 ? 'rect' : 'circle';
+      this.rotationSpeed = (Math.random() - 0.5) * 15;
+      this.color = `hsl(${Math.random() * 360}, 90%, 60%)`;
+      this.alpha = 1;
+      this.wobble = Math.random() * 10;
     }
 
     update() {
-      this.x += this.speedX;
-      this.speedY += this.gravity;
-      this.y += this.speedY;
+      this.x += this.vx + Math.sin(this.wobble) * 2;
+      this.vy += this.gravity;
+      this.y += this.vy;
       this.rotation += this.rotationSpeed;
-      this.speedX *= 0.99;
-      this.opacity -= 0.008;
+      this.vx *= 0.99;
+      this.wobble += 0.1;
+      this.alpha -= 0.006;
     }
 
     draw() {
       confettiCtx.save();
       confettiCtx.translate(this.x, this.y);
-      confettiCtx.rotate(this.rotation * Math.PI / 180);
-      confettiCtx.globalAlpha = Math.max(0, this.opacity);
+      confettiCtx.rotate((this.rotation * Math.PI) / 180);
+      confettiCtx.globalAlpha = Math.max(0, this.alpha);
       confettiCtx.fillStyle = this.color;
-      
-      if (this.shape === 'rect') {
-        confettiCtx.fillRect(-this.size / 2, -this.size / 4, this.size, this.size / 2);
-      } else {
-        confettiCtx.beginPath();
-        confettiCtx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
-        confettiCtx.fill();
-      }
-      
+      confettiCtx.fillRect(-this.w / 2, -this.h / 2, this.w, this.h);
       confettiCtx.restore();
     }
 
     isDead() {
-      return this.opacity <= 0 || this.y > confettiCanvas.height + 50;
+      return this.alpha <= 0 || this.y > confettiCanvas.height + 100;
     }
   }
 
@@ -346,32 +427,34 @@ document.addEventListener("DOMContentLoaded", function () {
     
     resizeConfettiCanvas();
     
-    // Launch from multiple positions
-    const launchPoints = [
-      { x: confettiCanvas.width * 0.25, y: confettiCanvas.height },
-      { x: confettiCanvas.width * 0.5, y: confettiCanvas.height },
-      { x: confettiCanvas.width * 0.75, y: confettiCanvas.height }
+    // Launch points
+    const sources = [
+      { x: confettiCanvas.width * 0.2, y: confettiCanvas.height + 50 },
+      { x: confettiCanvas.width * 0.5, y: confettiCanvas.height + 50 },
+      { x: confettiCanvas.width * 0.8, y: confettiCanvas.height + 50 }
     ];
     
-    launchPoints.forEach(point => {
-      for (let i = 0; i < 50; i++) {
-        confetti.push(new ConfettiPiece(
-          point.x + (Math.random() - 0.5) * 100,
-          point.y
+    sources.forEach(src => {
+      for (let i = 0; i < 40; i++) {
+        confetti.push(new Confetto(
+          src.x + (Math.random() - 0.5) * 80,
+          src.y
         ));
       }
     });
     
-    // Also launch from center of wheel
-    const wheelRect = canvas.getBoundingClientRect();
-    const centerX = wheelRect.left + wheelRect.width / 2;
-    const centerY = wheelRect.top + wheelRect.height / 2;
-    
-    for (let i = 0; i < 80; i++) {
-      const piece = new ConfettiPiece(centerX, centerY);
-      piece.speedX = (Math.random() - 0.5) * 25;
-      piece.speedY = Math.random() * -20 - 5;
-      confetti.push(piece);
+    // From wheel center
+    if (canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      
+      for (let i = 0; i < 60; i++) {
+        const c = new Confetto(cx, cy);
+        c.vx = (Math.random() - 0.5) * 30;
+        c.vy = Math.random() * -25 - 10;
+        confetti.push(c);
+      }
     }
     
     animateConfetti();
@@ -396,751 +479,693 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  // ==================== UTILITIES ====================
+  // ==================== SPARKLE EFFECTS ====================
+  
+  function createSparkle(x, y, container) {
+    const sparkle = document.createElement("div");
+    sparkle.style.cssText = `
+      position: absolute;
+      left: ${x}px;
+      top: ${y}px;
+      width: 4px;
+      height: 4px;
+      background: white;
+      border-radius: 50%;
+      pointer-events: none;
+      box-shadow: 0 0 6px 2px rgba(255, 255, 255, 0.8);
+      animation: sparkle-fade 0.6s ease-out forwards;
+    `;
+    container.appendChild(sparkle);
+    setTimeout(() => sparkle.remove(), 600);
+  }
 
-  function getRandom() {
-    if (window.crypto && window.crypto.getRandomValues) {
-      const array = new Uint32Array(1);
-      window.crypto.getRandomValues(array);
-      return array[0] / (0xffffffff + 1);
+  // Add sparkle animation
+  const sparkleStyle = document.createElement("style");
+  sparkleStyle.textContent = `
+    @keyframes sparkle-fade {
+      0% { transform: scale(0); opacity: 1; }
+      50% { transform: scale(1.5); opacity: 1; }
+      100% { transform: scale(0); opacity: 0; }
+    }
+  `;
+  document.head.appendChild(sparkleStyle);
+
+  // ==================== UTILITIES ====================
+  
+  function random() {
+    if (window.crypto?.getRandomValues) {
+      const arr = new Uint32Array(1);
+      crypto.getRandomValues(arr);
+      return arr[0] / (0xffffffff + 1);
     }
     return Math.random();
   }
 
   function normalizeAngle(angle) {
-    const twoPI = Math.PI * 2;
-    return ((angle % twoPI) + twoPI) % twoPI;
+    const TWO_PI = Math.PI * 2;
+    return ((angle % TWO_PI) + TWO_PI) % TWO_PI;
   }
 
-  function pickColor(index) {
-    if (index < COLOR_PALETTE.length) {
-      return COLOR_PALETTE[index];
-    }
+  function getColor(index) {
+    if (index < COLORS.length) return COLORS[index];
     const hue = (index * 47) % 360;
     return {
       solid: `hsl(${hue}, 75%, 55%)`,
-      gradient: [`hsl(${hue}, 75%, 55%)`, `hsl(${hue}, 85%, 65%)`]
+      gradient: [`hsl(${hue}, 75%, 55%)`, `hsl(${hue}, 85%, 70%)`],
+      glow: `hsla(${hue}, 75%, 55%, 0.6)`
     };
   }
 
   // ==================== STATE MANAGEMENT ====================
-
-  function seedDefaultOptions() {
+  
+  function seedDefaults() {
     state.wheelName = "What should we do?";
     state.options = [
-      { id: "opt-yes", label: "Yes", color: pickColor(0) },
-      { id: "opt-no", label: "No", color: pickColor(1) },
-      { id: "opt-maybe", label: "Maybe", color: pickColor(2) }
+      { id: "opt-yes", label: "Yes", color: getColor(0) },
+      { id: "opt-no", label: "No", color: getColor(1) },
+      { id: "opt-maybe", label: "Maybe", color: getColor(2) }
     ];
     state.history = [];
     state.rotation = 0;
   }
 
-  function tryLoadFromUrl() {
+  function loadFromUrl() {
     try {
-      const params = new URLSearchParams(window.location.search);
+      const params = new URLSearchParams(location.search);
       const encoded = params.get("wheel");
       if (!encoded) return null;
-      const json = decodeURIComponent(encoded);
-      const data = JSON.parse(json);
-      if (!data || !Array.isArray(data.options)) {
-        return null;
-      }
-      const name =
-        typeof data.name === "string" && data.name.trim()
-          ? data.name.trim().slice(0, 60)
-          : "Shared wheel";
+      
+      const data = JSON.parse(decodeURIComponent(encoded));
+      if (!data?.options?.length) return null;
+      
+      const name = (data.name || "Shared wheel").trim().slice(0, 60);
       const options = data.options
-        .map(function (label, index) {
+        .map((label, i) => {
           const text = String(label || "").trim().slice(0, 80);
           if (!text) return null;
           return {
-            id: "opt-shared-" + Date.now().toString(36) + "-" + index.toString(36),
+            id: `opt-shared-${Date.now().toString(36)}-${i}`,
             label: text,
-            color: pickColor(index)
+            color: getColor(i)
           };
         })
         .filter(Boolean);
-      if (!options.length) {
-        return null;
-      }
-      return {
-        wheelName: name,
-        options: options
-      };
-    } catch (err) {
-      console.warn("Failed to parse wheel from URL:", err);
+      
+      return options.length ? { wheelName: name, options } : null;
+    } catch (e) {
       return null;
     }
   }
 
   function loadState() {
-    const shared = tryLoadFromUrl();
+    const shared = loadFromUrl();
     if (shared) {
-      state.wheelName = shared.wheelName;
-      state.options = shared.options;
-      state.history = [];
-      state.rotation = 0;
+      Object.assign(state, shared, { history: [], rotation: 0 });
       return;
     }
-
+    
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) {
-        seedDefaultOptions();
+        seedDefaults();
         return;
       }
+      
       const data = JSON.parse(raw);
-      if (data && typeof data.wheelName === "string") {
-        state.wheelName = data.wheelName.slice(0, 60);
-      } else {
-        state.wheelName = "What should we do?";
-      }
-      if (data && Array.isArray(data.options) && data.options.length) {
+      state.wheelName = (data.wheelName || "What should we do?").slice(0, 60);
+      
+      if (data.options?.length) {
         state.options = data.options
-          .map(function (opt, index) {
-            if (!opt || typeof opt.label !== "string") return null;
-            const lbl = opt.label.trim().slice(0, 80);
-            if (!lbl) return null;
+          .map((opt, i) => {
+            const label = opt?.label?.trim().slice(0, 80);
+            if (!label) return null;
             return {
-              id: opt.id || "opt-" + index.toString(36) + "-" + Date.now().toString(36),
-              label: lbl,
-              color: pickColor(index)
+              id: opt.id || `opt-${i}-${Date.now().toString(36)}`,
+              label,
+              color: getColor(i)
             };
           })
           .filter(Boolean);
-        if (!state.options.length) {
-          seedDefaultOptions();
-        }
-      } else {
-        seedDefaultOptions();
       }
-      if (data && Array.isArray(data.history)) {
-        state.history = data.history
-          .slice(0, 30)
-          .map(function (entry) {
-            if (!entry) return null;
-            return {
-              ts: entry.ts || Date.now(),
-              result: String(entry.result || "")
-            };
-          })
-          .filter(function (entry) {
-            return entry.result && entry.result.trim();
-          });
-      } else {
-        state.history = [];
-      }
-    } catch (err) {
-      console.warn("Failed to load stored wheel:", err);
-      seedDefaultOptions();
+      
+      if (!state.options.length) seedDefaults();
+      
+      state.history = (data.history || [])
+        .slice(0, 30)
+        .filter(e => e?.result?.trim())
+        .map(e => ({ ts: e.ts || Date.now(), result: e.result }));
+    } catch (e) {
+      seedDefaults();
     }
+  }
+
+  function loadSoundPref() {
+    try {
+      const saved = localStorage.getItem(SOUND_KEY);
+      state.soundEnabled = saved !== "false";
+      updateSoundUI();
+    } catch (e) {}
   }
 
   function saveState() {
     try {
-      const payload = {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
         wheelName: state.wheelName,
-        options: state.options.map(function (opt) {
-          return {
-            id: opt.id,
-            label: opt.label
-          };
-        }),
+        options: state.options.map(o => ({ id: o.id, label: o.label })),
         history: state.history.slice(0, 30)
-      };
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch (err) {
-      console.warn("Failed to persist wheel state:", err);
-    }
+      }));
+    } catch (e) {}
+  }
+
+  function saveSoundPref() {
+    try {
+      localStorage.setItem(SOUND_KEY, state.soundEnabled);
+    } catch (e) {}
   }
 
   // ==================== RENDERING ====================
-
-  function renderWheelName() {
-    if (wheelNameInput) {
-      wheelNameInput.value = state.wheelName;
-    }
+  
+  function render() {
+    renderWheelName();
+    renderOptions();
+    renderHistory();
+    renderResult();
+    renderWheel();
+    updateShareLink();
   }
 
-  function renderOptionsList() {
+  function renderWheelName() {
+    if (wheelNameInput) wheelNameInput.value = state.wheelName;
+  }
+
+  function renderOptions() {
     if (!optionsList) return;
-
+    
     optionsList.innerHTML = "";
-
+    
     if (!state.options.length) {
-      const empty = document.createElement("p");
-      empty.className = "options-list-empty";
-      empty.textContent = "No choices yet. Add your first option above.";
-      optionsList.appendChild(empty);
-      if (optionCount) optionCount.textContent = "0";
+      optionsList.innerHTML = `<li class="options-list-empty">No options yet. Add your first choice above!</li>`;
+      if (optionCountEl) optionCountEl.textContent = "0";
       return;
     }
-
-    state.options.forEach(function (opt, index) {
+    
+    state.options.forEach((opt, i) => {
       const li = document.createElement("li");
       li.className = "options-list-item";
-
-      const idx = document.createElement("span");
-      idx.className = "option-index";
-      idx.textContent = String(index + 1) + ".";
-
-      const dot = document.createElement("span");
-      dot.className = "option-color-dot";
-      dot.style.backgroundColor = opt.color.solid;
-
-      const label = document.createElement("span");
-      label.className = "option-label";
-      label.textContent = opt.label;
-
-      const del = document.createElement("button");
-      del.type = "button";
-      del.className = "icon-button icon-button-danger";
-      del.setAttribute("aria-label", 'Remove option "' + opt.label + '"');
-      del.dataset.deleteId = opt.id;
-      del.textContent = "×";
-
-      li.appendChild(idx);
-      li.appendChild(dot);
-      li.appendChild(label);
-      li.appendChild(del);
-
+      li.innerHTML = `
+        <span class="option-index">${i + 1}.</span>
+        <span class="option-color-dot" style="background-color: ${opt.color.solid}; color: ${opt.color.glow}"></span>
+        <span class="option-label">${escapeHtml(opt.label)}</span>
+        <button type="button" class="icon-button" data-delete="${opt.id}" aria-label="Remove ${opt.label}">×</button>
+      `;
       optionsList.appendChild(li);
     });
-
-    if (optionCount) {
-      optionCount.textContent = String(state.options.length);
-    }
+    
+    if (optionCountEl) optionCountEl.textContent = state.options.length;
   }
 
   function renderHistory() {
     if (!historyList) return;
+    
     historyList.innerHTML = "";
-
+    
     if (!state.history.length) {
-      const li = document.createElement("li");
-      li.className = "history-empty";
-      li.textContent = "No spins yet. Spin the wheel to see your history.";
-      historyList.appendChild(li);
+      historyList.innerHTML = `<li class="history-empty">No spins yet. Give the wheel a spin!</li>`;
       return;
     }
-
-    state.history.forEach(function (entry) {
+    
+    state.history.forEach(entry => {
       const li = document.createElement("li");
       li.className = "history-item";
-
-      const resultSpan = document.createElement("span");
-      resultSpan.className = "history-result";
-      resultSpan.textContent = entry.result;
-
-      const metaSpan = document.createElement("span");
-      metaSpan.className = "history-meta";
-      try {
-        const date = new Date(entry.ts);
-        const timeString = date.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit"
-        });
-        metaSpan.textContent = timeString;
-      } catch (err) {
-        metaSpan.textContent = "";
-      }
-
-      li.appendChild(resultSpan);
-      li.appendChild(metaSpan);
+      
+      const time = new Date(entry.ts).toLocaleTimeString([], { 
+        hour: "2-digit", 
+        minute: "2-digit" 
+      });
+      
+      li.innerHTML = `
+        <span class="history-result">${escapeHtml(entry.result)}</span>
+        <span class="history-meta">${time}</span>
+      `;
       historyList.appendChild(li);
     });
   }
 
   function renderResult(message, isWin = false) {
     if (!resultDisplay) return;
-
-    resultDisplay.classList.toggle('has-result', !!message);
+    
+    resultDisplay.classList.toggle("has-result", isWin || !!message);
     
     if (message) {
-      resultDisplay.innerHTML = "";
-      const span = document.createElement("span");
-      span.className = "result-text";
-      
-      if (isWin) {
-        const strong = document.createElement("strong");
-        strong.textContent = "🎉 " + message;
-        span.appendChild(strong);
-      } else {
-        span.textContent = message;
-      }
-      resultDisplay.appendChild(span);
-      return;
-    }
-
-    if (state.history[0]) {
-      resultDisplay.innerHTML = "";
-      resultDisplay.classList.add('has-result');
-      const span = document.createElement("span");
-      span.className = "result-text";
-      const prefix = document.createTextNode("Last spin: ");
-      const strong = document.createElement("strong");
-      strong.textContent = state.history[0].result;
-      span.appendChild(prefix);
-      span.appendChild(strong);
-      resultDisplay.appendChild(span);
+      if (resultLabel) resultLabel.textContent = isWin ? "🎉 The wheel chose:" : "";
+      if (resultValue) resultValue.textContent = message;
+    } else if (state.history[0]) {
+      if (resultLabel) resultLabel.textContent = "Last spin:";
+      if (resultValue) resultValue.textContent = state.history[0].result;
     } else {
-      resultDisplay.innerHTML = '<span class="result-text">Add some options and spin the wheel.</span>';
+      if (resultLabel) resultLabel.textContent = "Ready to spin!";
+      if (resultValue) resultValue.textContent = "";
+      resultDisplay.classList.remove("has-result");
     }
   }
 
   function updateShareLink() {
     if (!shareLinkInput) return;
-
+    
     try {
       const data = {
         name: state.wheelName,
-        options: state.options.map(function (opt) {
-          return opt.label;
-        })
+        options: state.options.map(o => o.label)
       };
-      const json = JSON.stringify(data);
-      const encoded = encodeURIComponent(json);
-      const origin = window.location.origin || window.location.protocol + "//" + window.location.host;
-      const base = origin + window.location.pathname;
-      const url = base + "?wheel=" + encoded;
-      shareLinkInput.value = url;
-    } catch (err) {
-      console.warn("Failed to update share link:", err);
+      const base = location.origin + location.pathname;
+      shareLinkInput.value = `${base}?wheel=${encodeURIComponent(JSON.stringify(data))}`;
+    } catch (e) {
       shareLinkInput.value = "";
     }
   }
 
+  function updateSoundUI() {
+    if (soundToggle) {
+      soundToggle.classList.toggle("is-muted", !state.soundEnabled);
+    }
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // ==================== WHEEL RENDERING ====================
+  
   function renderWheel() {
     if (!canvas || !ctx) return;
-
+    
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
-    const width = rect.width || canvas.width;
-    const height = rect.height || canvas.height;
-
-    if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
+    const w = rect.width;
+    const h = rect.height;
+    
+    if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
     }
-
+    
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, width, height);
-
-    const size = Math.min(width, height);
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const radius = size / 2 - 4;
-
-    // Draw base circle with gradient
+    ctx.clearRect(0, 0, w, h);
+    
+    const cx = w / 2;
+    const cy = h / 2;
+    const radius = Math.min(w, h) / 2 - 2;
+    
+    // Background
     ctx.save();
     ctx.beginPath();
-    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-    const baseGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
-    baseGradient.addColorStop(0, "#1a1f35");
-    baseGradient.addColorStop(0.5, "#0f172a");
-    baseGradient.addColorStop(1, "#030712");
-    ctx.fillStyle = baseGradient;
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    bgGrad.addColorStop(0, "#1e293b");
+    bgGrad.addColorStop(0.5, "#0f172a");
+    bgGrad.addColorStop(1, "#030712");
+    ctx.fillStyle = bgGrad;
     ctx.fill();
     ctx.restore();
-
+    
     if (!state.options.length) {
       ctx.save();
       ctx.beginPath();
-      ctx.arc(centerX, centerY, radius * 0.95, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(30, 64, 175, 0.2)";
+      ctx.arc(cx, cy, radius * 0.94, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(30, 64, 175, 0.15)";
       ctx.fill();
-      ctx.restore();
-      
-      // Draw placeholder text
-      ctx.save();
-      ctx.fillStyle = "rgba(148, 163, 184, 0.5)";
-      ctx.font = "500 16px 'Outfit', system-ui, sans-serif";
+      ctx.fillStyle = "rgba(148, 163, 184, 0.4)";
+      ctx.font = "500 16px Inter, system-ui, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("Add options to spin!", centerX, centerY);
+      ctx.fillText("Add options to spin!", cx, cy);
       ctx.restore();
       return;
     }
-
+    
     const count = state.options.length;
-    const anglePerSlice = (Math.PI * 2) / count;
-
-    // Draw segments with gradients and effects
+    const sliceAngle = (Math.PI * 2) / count;
+    
+    // Draw segments
     for (let i = 0; i < count; i++) {
       const opt = state.options[i];
-      const startAngle = state.rotation + i * anglePerSlice;
-      const endAngle = startAngle + anglePerSlice;
-
-      // Create gradient for segment
-      const midAngle = startAngle + anglePerSlice / 2;
-      const gradX1 = centerX + Math.cos(midAngle) * radius * 0.3;
-      const gradY1 = centerY + Math.sin(midAngle) * radius * 0.3;
-      const gradX2 = centerX + Math.cos(midAngle) * radius * 0.9;
-      const gradY2 = centerY + Math.sin(midAngle) * radius * 0.9;
-
+      const start = state.rotation + i * sliceAngle;
+      const end = start + sliceAngle;
+      const mid = start + sliceAngle / 2;
+      
       ctx.save();
       ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.arc(centerX, centerY, radius * 0.95, startAngle, endAngle);
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius * 0.94, start, end);
       ctx.closePath();
-
+      
       // Gradient fill
-      const segGradient = ctx.createLinearGradient(gradX1, gradY1, gradX2, gradY2);
-      segGradient.addColorStop(0, opt.color.gradient[0]);
-      segGradient.addColorStop(1, opt.color.gradient[1]);
-      ctx.fillStyle = segGradient;
+      const gx1 = cx + Math.cos(mid) * radius * 0.2;
+      const gy1 = cy + Math.sin(mid) * radius * 0.2;
+      const gx2 = cx + Math.cos(mid) * radius * 0.9;
+      const gy2 = cy + Math.sin(mid) * radius * 0.9;
+      
+      const segGrad = ctx.createLinearGradient(gx1, gy1, gx2, gy2);
+      segGrad.addColorStop(0, opt.color.gradient[0]);
+      segGrad.addColorStop(1, opt.color.gradient[1]);
+      ctx.fillStyle = segGrad;
       ctx.fill();
-
+      
       // Segment border
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
       ctx.lineWidth = 2;
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
       ctx.stroke();
       ctx.restore();
-
-      // Inner highlight
+      
+      // Highlight
       ctx.save();
       ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.arc(centerX, centerY, radius * 0.95, startAngle, startAngle + anglePerSlice * 0.3);
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius * 0.94, start, start + sliceAngle * 0.35);
       ctx.closePath();
-      ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
       ctx.fill();
       ctx.restore();
-
-      // Draw text with shadow
+      
+      // Text
       ctx.save();
-      ctx.translate(centerX, centerY);
-      ctx.rotate(startAngle + anglePerSlice / 2);
+      ctx.translate(cx, cy);
+      ctx.rotate(mid);
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
       
-      // Text shadow
-      ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-      ctx.font = "600 14px 'Outfit', system-ui, sans-serif";
-      const label = opt.label;
-      const maxTextWidth = radius * 0.65;
-      const truncated = truncateText(ctx, label, maxTextWidth);
-      ctx.fillText(truncated, radius * 0.88, 2);
+      // Shadow
+      ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+      ctx.font = "600 14px Inter, system-ui, sans-serif";
+      const text = truncate(ctx, opt.label, radius * 0.6);
+      ctx.fillText(text, radius * 0.86, 2);
       
-      // Main text
+      // Text
       ctx.fillStyle = "#ffffff";
-      ctx.fillText(truncated, radius * 0.88, 0);
+      ctx.fillText(text, radius * 0.86, 0);
       ctx.restore();
     }
-
-    // Draw outer ring highlight
+    
+    // Outer glow ring
     ctx.save();
     ctx.beginPath();
-    ctx.arc(centerX, centerY, radius * 0.95, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+    ctx.arc(cx, cy, radius * 0.94, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
     ctx.lineWidth = 2;
     ctx.stroke();
     ctx.restore();
   }
 
-  function truncateText(ctx, text, maxWidth) {
-    const ellipsis = "…";
-    if (ctx.measureText(text).width <= maxWidth) {
-      return text;
+  function truncate(ctx, text, maxW) {
+    if (ctx.measureText(text).width <= maxW) return text;
+    let t = text;
+    while (t.length && ctx.measureText(t + "…").width > maxW) {
+      t = t.slice(0, -1);
     }
-    let trimmed = text;
-    while (trimmed.length > 0) {
-      trimmed = trimmed.slice(0, -1);
-      if (ctx.measureText(trimmed + ellipsis).width <= maxWidth) {
-        return trimmed + ellipsis;
-      }
-    }
-    return text;
+    return t + "…";
   }
 
   // ==================== WHEEL ACTIONS ====================
-
-  function addHistoryEntry(resultLabel) {
-    state.history.unshift({
-      ts: Date.now(),
-      result: resultLabel
-    });
-    state.history = state.history.slice(0, 30);
-  }
-
+  
   function addOption(label) {
     const trimmed = label.trim();
     if (!trimmed) return;
+    
     if (state.options.length >= MAX_OPTIONS) {
-      alert("You can only have up to " + MAX_OPTIONS + " options on the wheel.");
+      alert(`Maximum ${MAX_OPTIONS} options allowed.`);
       return;
     }
-    playClickSound();
-    const index = state.options.length;
-    const option = {
-      id: "opt-" + Date.now().toString(36) + "-" + Math.random().toString(16).slice(2),
+    
+    playClick();
+    
+    state.options.push({
+      id: `opt-${Date.now().toString(36)}-${Math.random().toString(16).slice(2)}`,
       label: trimmed.slice(0, 80),
-      color: pickColor(index)
-    };
-    state.options.push(option);
+      color: getColor(state.options.length)
+    });
+    
     saveState();
-    renderOptionsList();
+    renderOptions();
     renderWheel();
     updateShareLink();
   }
 
   function removeOption(id) {
-    playClickSound();
-    const next = state.options.filter(function (opt) {
-      return opt.id !== id;
+    playClick();
+    state.options = state.options.filter(o => o.id !== id);
+    // Reassign colors
+    state.options.forEach((opt, i) => {
+      opt.color = getColor(i);
     });
-    state.options = next;
-    // Reassign colors to maintain consistency
-    state.options = state.options.map((opt, index) => ({
-      ...opt,
-      color: pickColor(index)
-    }));
     saveState();
-    renderOptionsList();
+    renderOptions();
     renderWheel();
     updateShareLink();
   }
 
   function resetWheel() {
-    if (!window.confirm("Clear all options and spin history?")) return;
-    playClickSound();
-    seedDefaultOptions();
+    if (!confirm("Clear all options and start fresh?")) return;
+    playClick();
+    seedDefaults();
     state.rotation = 0;
     saveState();
-    renderWheelName();
-    renderOptionsList();
+    render();
+  }
+
+  function clearHistory() {
+    if (!confirm("Clear spin history?")) return;
+    playClick();
+    state.history = [];
+    saveState();
     renderHistory();
     renderResult();
-    updateShareLink();
-    renderWheel();
   }
 
-  // Easing functions
-  function easeOutQuint(t) {
-    return 1 - Math.pow(1 - t, 5);
-  }
-
+  // ==================== SPIN LOGIC ====================
+  
   let lastTickAngle = 0;
 
-  function spinWheel() {
+  function spin() {
     if (state.isSpinning) return;
+    
     if (!state.options.length) {
-      alert("Add at least one option before spinning the wheel.");
+      alert("Add at least one option first!");
       return;
     }
-
+    
     state.isSpinning = true;
+    
     if (spinButton) {
       spinButton.disabled = true;
-      spinButton.classList.add('is-spinning');
-      spinButton.querySelector('.btn-text').textContent = "🎰 Spinning...";
+      spinButton.classList.add("is-spinning");
+      const btnText = spinButton.querySelector(".btn-text");
+      if (btnText) btnText.textContent = "SPINNING...";
     }
-
-    playSpinStartSound();
-
+    
+    playSpinStart();
+    
     const count = state.options.length;
-    const anglePerSlice = (Math.PI * 2) / count;
-    const winningIndex = Math.floor(getRandom() * count);
-    const startRotation = normalizeAngle(state.rotation);
-    lastTickAngle = startRotation;
-
-    const extraSpins = 5 + Math.floor(getRandom() * 4);
-    const targetBaseRotation = -Math.PI / 2 - (winningIndex * anglePerSlice + anglePerSlice / 2);
-    const randomOffset = (getRandom() - 0.5) * anglePerSlice * 0.6; // Random position within segment
-    const finalRotation = targetBaseRotation + extraSpins * (Math.PI * 2) + randomOffset;
-    const totalDelta = finalRotation - startRotation;
-
-    const duration = 5000 + getRandom() * 2000;
+    const sliceAngle = (Math.PI * 2) / count;
+    const winIndex = Math.floor(random() * count);
+    const startRot = normalizeAngle(state.rotation);
+    lastTickAngle = startRot;
+    
+    const spins = 6 + Math.floor(random() * 4);
+    const targetBase = -Math.PI / 2 - (winIndex * sliceAngle + sliceAngle / 2);
+    const offset = (random() - 0.5) * sliceAngle * 0.7;
+    const finalRot = targetBase + spins * Math.PI * 2 + offset;
+    const delta = finalRot - startRot;
+    
+    const duration = 5500 + random() * 2000;
     const startTime = performance.now();
-
+    
+    function easeOut(t) {
+      return 1 - Math.pow(1 - t, 5);
+    }
+    
     function frame(now) {
       const elapsed = now - startTime;
       const t = Math.min(elapsed / duration, 1);
-      const eased = easeOutQuint(t);
-
-      state.rotation = startRotation + totalDelta * eased;
+      const eased = easeOut(t);
+      
+      state.rotation = startRot + delta * eased;
       renderWheel();
-
-      // Play tick sounds based on segment changes
-      const currentAngle = normalizeAngle(state.rotation);
-      const angleChange = Math.abs(currentAngle - lastTickAngle);
-      if (angleChange > anglePerSlice * 0.8 || angleChange < anglePerSlice * 0.2) {
-        if (t < 0.95) { // Don't tick near the end
-          playTickSound();
+      
+      // Tick sounds
+      const curr = normalizeAngle(state.rotation);
+      const diff = Math.abs(curr - lastTickAngle);
+      
+      if (diff > sliceAngle * 0.7 || diff < sliceAngle * 0.2) {
+        if (t < 0.92) {
+          playTick();
+          // Sparkle effect
+          if (wheelSparkles) {
+            const rect = wheelSparkles.getBoundingClientRect();
+            createSparkle(
+              Math.random() * rect.width,
+              Math.random() * rect.height,
+              wheelSparkles
+            );
+          }
         }
-        lastTickAngle = currentAngle;
+        lastTickAngle = curr;
       }
-
+      
       if (t < 1) {
-        window.requestAnimationFrame(frame);
+        requestAnimationFrame(frame);
       } else {
-        finishSpin(winningIndex);
+        finishSpin(winIndex);
       }
     }
-
-    window.requestAnimationFrame(frame);
+    
+    requestAnimationFrame(frame);
   }
 
-  function finishSpin(index) {
+  function finishSpin(winIndex) {
     state.rotation = normalizeAngle(state.rotation);
     state.isSpinning = false;
-
+    
     if (spinButton) {
       spinButton.disabled = false;
-      spinButton.classList.remove('is-spinning');
-      spinButton.querySelector('.btn-text').textContent = "🎰 Spin the wheel";
+      spinButton.classList.remove("is-spinning");
+      const btnText = spinButton.querySelector(".btn-text");
+      if (btnText) btnText.textContent = "SPIN";
     }
-
-    const chosen = state.options[index];
-    if (!chosen) {
-      renderResult("Something went wrong. Please spin again.");
+    
+    const winner = state.options[winIndex];
+    if (!winner) {
+      renderResult("Something went wrong. Try again!");
       return;
     }
-
-    // Celebration effects!
+    
+    // Celebration!
     playWinSound();
     launchConfetti();
     
     // Screen shake
-    document.body.classList.add('is-shaking');
-    setTimeout(() => {
-      document.body.classList.remove('is-shaking');
-    }, 500);
+    document.body.classList.add("is-shaking");
+    setTimeout(() => document.body.classList.remove("is-shaking"), 500);
     
-    // Wheel glow celebration
+    // Wheel glow
     if (wheelFrame) {
-      wheelFrame.classList.add('is-celebrating');
-      setTimeout(() => {
-        wheelFrame.classList.remove('is-celebrating');
-      }, 2400);
+      wheelFrame.classList.add("is-celebrating");
+      setTimeout(() => wheelFrame.classList.remove("is-celebrating"), 2500);
     }
-
-    addHistoryEntry(chosen.label);
+    
+    // Record result
+    state.history.unshift({
+      ts: Date.now(),
+      result: winner.label
+    });
+    state.history = state.history.slice(0, 30);
+    
     saveState();
     renderHistory();
-    renderResult("The wheel chose: " + chosen.label, true);
+    renderResult(winner.label, true);
   }
 
-  function handleCopyShareLink() {
-    if (!shareLinkInput) return;
-    const text = shareLinkInput.value.trim();
-    if (!text) return;
-
-    playClickSound();
-
-    function showToast(message) {
+  function copyShareLink() {
+    if (!shareLinkInput?.value) return;
+    
+    playClick();
+    
+    const text = shareLinkInput.value;
+    
+    function showToast(msg) {
       if (!shareToast) return;
-      shareToast.textContent = message;
+      shareToast.textContent = msg;
       shareToast.classList.add("is-visible");
-      window.setTimeout(function () {
-        shareToast.classList.remove("is-visible");
-      }, 1800);
+      setTimeout(() => shareToast.classList.remove("is-visible"), 2000);
     }
-
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard
-        .writeText(text)
-        .then(function () {
-          showToast("✓ Link copied to clipboard!");
-        })
-        .catch(function () {
-          showToast("Could not copy. Try selecting manually.");
-        });
-      return;
-    }
-
-    shareLinkInput.select();
-    try {
-      const ok = document.execCommand("copy");
-      showToast(ok ? "✓ Link copied to clipboard!" : "Could not copy link.");
-    } catch (err) {
-      console.warn("Clipboard copy failed:", err);
-      showToast("Could not copy. Try selecting manually.");
-    } finally {
-      shareLinkInput.setSelectionRange(0, 0);
+    
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => showToast("✓ Copied to clipboard!"))
+        .catch(() => showToast("Failed to copy"));
+    } else {
+      shareLinkInput.select();
+      try {
+        document.execCommand("copy");
+        showToast("✓ Copied!");
+      } catch {
+        showToast("Please copy manually");
+      }
       shareLinkInput.blur();
     }
   }
 
-  // ==================== EVENT LISTENERS ====================
+  function toggleSound() {
+    state.soundEnabled = !state.soundEnabled;
+    saveSoundPref();
+    updateSoundUI();
+    if (state.soundEnabled) playClick();
+  }
 
+  // ==================== EVENT LISTENERS ====================
+  
   if (optionForm && newOptionInput) {
-    optionForm.addEventListener("submit", function (event) {
-      event.preventDefault();
-      addOption(newOptionInput.value || "");
+    optionForm.addEventListener("submit", e => {
+      e.preventDefault();
+      addOption(newOptionInput.value);
       newOptionInput.value = "";
       newOptionInput.focus();
     });
   }
 
   if (optionsList) {
-    optionsList.addEventListener("click", function (event) {
-      const target = event.target;
-      if (!target) return;
-      const button = target.closest("button[data-delete-id]");
-      if (!button) return;
-      const id = button.getAttribute("data-delete-id");
-      if (!id) return;
-      removeOption(id);
+    optionsList.addEventListener("click", e => {
+      const btn = e.target.closest("button[data-delete]");
+      if (btn) removeOption(btn.dataset.delete);
     });
   }
 
   if (wheelNameInput) {
-    wheelNameInput.addEventListener("input", function () {
-      const value = wheelNameInput.value || "";
-      state.wheelName = value.slice(0, 60);
+    wheelNameInput.addEventListener("input", () => {
+      state.wheelName = (wheelNameInput.value || "").slice(0, 60);
       saveState();
       updateShareLink();
     });
   }
 
   if (spinButton) {
-    spinButton.addEventListener("click", function () {
-      spinWheel();
-    });
+    spinButton.addEventListener("click", spin);
   }
 
   if (resetButton) {
-    resetButton.addEventListener("click", function () {
-      resetWheel();
-    });
+    resetButton.addEventListener("click", resetWheel);
+  }
+
+  if (clearHistoryBtn) {
+    clearHistoryBtn.addEventListener("click", clearHistory);
   }
 
   if (copyShareLinkButton) {
-    copyShareLinkButton.addEventListener("click", function () {
-      handleCopyShareLink();
-    });
+    copyShareLinkButton.addEventListener("click", copyShareLink);
   }
 
   if (soundToggle) {
-    soundToggle.addEventListener("click", function () {
-      toggleSound();
-    });
+    soundToggle.addEventListener("click", toggleSound);
   }
 
-  // ==================== INITIALIZATION ====================
-
-  loadSoundPreference();
+  // ==================== INIT ====================
+  
+  loadSoundPref();
   loadState();
-  renderWheelName();
-  renderOptionsList();
-  renderHistory();
-  renderResult();
-  renderWheel();
-  updateShareLink();
+  render();
   initParticles();
   resizeConfettiCanvas();
 
-  window.addEventListener("resize", function () {
+  window.addEventListener("resize", () => {
     renderWheel();
     resizeParticleCanvas();
     resizeConfettiCanvas();
   });
 
-  // Initialize audio context on first user interaction
-  document.addEventListener('click', function initAudio() {
-    initAudioContext();
-    document.removeEventListener('click', initAudio);
+  // Init audio on first interaction
+  document.addEventListener("click", function init() {
+    getAudioContext();
+    document.removeEventListener("click", init);
   }, { once: true });
 });
