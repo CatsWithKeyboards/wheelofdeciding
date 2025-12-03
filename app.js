@@ -56,6 +56,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const volumeControl = $(".volume-control");
   const wheelFrame = $(".wheel-frame");
   const wheelSparkles = $("#wheelSparkles");
+  const studioAudience = $("#studioAudience");
 
   // ==================== STATE ====================
 
@@ -394,6 +395,30 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     
     animateParticles();
+  }
+
+  // Generate studio audience
+  function initAudience() {
+    if (!studioAudience) return;
+    
+    studioAudience.innerHTML = '';
+    
+    // Create rows of audience members
+    const rows = 3;
+    const peoplePerRow = Math.floor(window.innerWidth / 50);
+    
+    for (let row = 0; row < rows; row++) {
+      for (let i = 0; i < peoplePerRow; i++) {
+        const person = document.createElement('div');
+        person.className = 'audience-person';
+        person.style.setProperty('--delay', Math.random() * 20);
+        person.style.width = `${30 + Math.random() * 20}px`;
+        person.style.height = `${50 + Math.random() * 30}px`;
+        person.style.marginLeft = `${Math.random() * 10}px`;
+        person.style.marginRight = `${Math.random() * 10}px`;
+        studioAudience.appendChild(person);
+      }
+    }
   }
 
   function resizeParticleCanvas() {
@@ -870,25 +895,31 @@ document.addEventListener("DOMContentLoaded", function () {
     const cy = h / 2;
     const radius = Math.min(w, h) / 2 - 4;
     
-    // === OUTER METALLIC RIM ===
+    // === OUTER METALLIC RIM (Classic Game Show Style) ===
     ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy, radius, 0, Math.PI * 2);
     const rimGrad = ctx.createLinearGradient(cx, cy - radius, cx, cy + radius);
-    rimGrad.addColorStop(0, "#64748b");
-    rimGrad.addColorStop(0.3, "#94a3b8");
-    rimGrad.addColorStop(0.5, "#cbd5e1");
-    rimGrad.addColorStop(0.7, "#94a3b8");
-    rimGrad.addColorStop(1, "#475569");
+    rimGrad.addColorStop(0, "#fbbf24"); // Gold top
+    rimGrad.addColorStop(0.2, "#fcd34d");
+    rimGrad.addColorStop(0.4, "#fef3c7"); // Bright center
+    rimGrad.addColorStop(0.6, "#fcd34d");
+    rimGrad.addColorStop(0.8, "#d97706");
+    rimGrad.addColorStop(1, "#92400e"); // Dark bottom
     ctx.fillStyle = rimGrad;
     ctx.fill();
+    
+    // Rim highlight
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
     ctx.restore();
 
     // === INNER SHADOW ON RIM ===
     ctx.save();
     ctx.beginPath();
-    ctx.arc(cx, cy, radius - 6, 0, Math.PI * 2);
-    ctx.fillStyle = "#1e293b";
+    ctx.arc(cx, cy, radius - 8, 0, Math.PI * 2);
+    ctx.fillStyle = "#0a0a0a";
     ctx.fill();
     ctx.restore();
     
@@ -936,22 +967,23 @@ document.addEventListener("DOMContentLoaded", function () {
         cx, cy, innerRadius
       );
       
-      // Parse the color and create lighter/darker versions
+      // Brighter, more vibrant colors for classic game show look
       const baseColor = opt.color.solid;
-      segGrad.addColorStop(0, lightenColor(baseColor, 30));
-      segGrad.addColorStop(0.4, baseColor);
-      segGrad.addColorStop(0.8, darkenColor(baseColor, 15));
-      segGrad.addColorStop(1, darkenColor(baseColor, 25));
+      segGrad.addColorStop(0, lightenColor(baseColor, 40)); // Very bright at top
+      segGrad.addColorStop(0.3, lightenColor(baseColor, 20));
+      segGrad.addColorStop(0.6, baseColor);
+      segGrad.addColorStop(0.9, darkenColor(baseColor, 10));
+      segGrad.addColorStop(1, darkenColor(baseColor, 20));
       
       ctx.fillStyle = segGrad;
       ctx.fill();
       ctx.restore();
     }
     
-    // === SEGMENT DIVIDERS (clean lines) ===
+    // === SEGMENT DIVIDERS (Bold black lines) ===
     ctx.save();
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
-      ctx.lineWidth = 2;
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 3;
     for (let i = 0; i < count; i++) {
       const angle = state.rotation + i * sliceAngle;
       ctx.beginPath();
@@ -962,9 +994,9 @@ document.addEventListener("DOMContentLoaded", function () {
       );
       ctx.stroke();
     }
-      ctx.restore();
+    ctx.restore();
     
-    // === DRAW TEXT ON SEGMENTS ===
+    // === DRAW TEXT ON SEGMENTS (Bold, dramatic styling) ===
     for (let i = 0; i < count; i++) {
       const opt = state.options[i];
       const start = state.rotation + i * sliceAngle;
@@ -974,20 +1006,26 @@ document.addEventListener("DOMContentLoaded", function () {
       ctx.translate(cx, cy);
       ctx.rotate(mid);
       
-      // Text styling
-      ctx.font = "bold 14px Inter, system-ui, sans-serif";
+      // Bold, dramatic text styling
+      const fontSize = Math.max(12, Math.min(16, innerRadius * 0.08));
+      ctx.font = `bold ${fontSize}px 'Inter', system-ui, sans-serif`;
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
       
       const label = truncate(ctx, opt.label, innerRadius * 0.55);
       const textX = innerRadius * 0.85;
       
-      // Text shadow for depth
-      ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+      // Multiple shadow layers for dramatic effect
+      ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+      ctx.fillText(label, textX + 2, 2);
+      ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
       ctx.fillText(label, textX + 1, 1);
       
-      // Main text (white)
+      // Main text (bright white with slight glow)
       ctx.fillStyle = "#ffffff";
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+      ctx.lineWidth = 0.5;
+      ctx.strokeText(label, textX, 0);
       ctx.fillText(label, textX, 0);
       
       ctx.restore();
@@ -1191,8 +1229,10 @@ document.addEventListener("DOMContentLoaded", function () {
       const curr = normalizeAngle(state.rotation);
       const angleDiff = Math.abs(curr - lastTickAngle);
       
-      // Calculate minimum time between ticks based on speed (faster = shorter cooldown)
-      const minTickInterval = Math.max(30, 150 * speed); // 30ms minimum, up to 150ms when slow
+      // Calculate minimum time between ticks based on speed
+      // When fast (speed near 1): short interval (30ms)
+      // When slow (speed near 0): long interval (200ms)
+      const minTickInterval = 30 + (200 - 30) * (1 - speed);
       const timeSinceLastTick = now - lastTickTime;
       
       // Only play tick when:
@@ -1232,7 +1272,7 @@ document.addEventListener("DOMContentLoaded", function () {
     
     // Stop spin ambience
     stopSpinAmbience();
-
+    
     if (spinButton) {
       spinButton.disabled = false;
       spinButton.classList.remove("is-spinning");
@@ -1245,7 +1285,7 @@ document.addEventListener("DOMContentLoaded", function () {
       renderResult("Something went wrong. Try again!");
       return;
     }
-
+    
     // Celebration!
     playWinSound();
     launchConfetti();
@@ -1258,6 +1298,18 @@ document.addEventListener("DOMContentLoaded", function () {
     if (wheelFrame) {
       wheelFrame.classList.add("is-celebrating");
       setTimeout(() => wheelFrame.classList.remove("is-celebrating"), 2500);
+    }
+    
+    // Crowd excitement!
+    if (studioAudience) {
+      const people = studioAudience.querySelectorAll('.audience-person');
+      people.forEach((person, i) => {
+        setTimeout(() => {
+          person.style.animation = 'none';
+          person.offsetHeight; // Trigger reflow
+          person.style.animation = 'audience-cheer 0.3s ease-in-out 5';
+        }, i * 20);
+      });
     }
     
     // Record result
@@ -1377,6 +1429,7 @@ document.addEventListener("DOMContentLoaded", function () {
   loadState();
   render();
   initParticles();
+  initAudience();
   resizeConfettiCanvas();
   updateVolumeUI();
 
@@ -1384,6 +1437,7 @@ document.addEventListener("DOMContentLoaded", function () {
     renderWheel();
     resizeParticleCanvas();
     resizeConfettiCanvas();
+    initAudience();
   });
 
   // Init audio on first interaction
